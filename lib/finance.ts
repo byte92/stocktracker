@@ -368,9 +368,47 @@ export function formatPercent(value: number, decimals = 2): string {
   return `${sign}${value.toFixed(decimals)}%`;
 }
 
-// 生成UUID
+function getRuntimeCrypto(): Crypto | undefined {
+  return typeof globalThis !== "undefined" && typeof globalThis.crypto !== "undefined"
+    ? globalThis.crypto
+    : undefined;
+}
+
+function fillRandomBytes(bytes: Uint8Array) {
+  const runtimeCrypto = getRuntimeCrypto();
+  if (typeof runtimeCrypto?.getRandomValues === "function") {
+    runtimeCrypto.getRandomValues(bytes);
+    return;
+  }
+
+  for (let index = 0; index < bytes.length; index++) {
+    bytes[index] = Math.floor(Math.random() * 256);
+  }
+}
+
+function formatUuid(bytes: Uint8Array) {
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+  return [
+    hex.slice(0, 4).join(""),
+    hex.slice(4, 6).join(""),
+    hex.slice(6, 8).join(""),
+    hex.slice(8, 10).join(""),
+    hex.slice(10, 16).join(""),
+  ].join("-");
+}
+
+// 生成UUID，兼容不支持 crypto.randomUUID 的浏览器运行环境
 export function generateId(): string {
-  return crypto.randomUUID();
+  const runtimeCrypto = getRuntimeCrypto();
+  if (typeof runtimeCrypto?.randomUUID === "function") {
+    return runtimeCrypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  fillRandomBytes(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  return formatUuid(bytes);
 }
 
 // 获取今天的日期字符串

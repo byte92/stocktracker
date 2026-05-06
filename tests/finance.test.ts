@@ -1,8 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { autoCalcFees, calcBuyNetAmount, calcSellNetAmount, calcStockSummary, formatPnl } from '@/lib/finance'
+import { autoCalcFees, calcBuyNetAmount, calcSellNetAmount, calcStockSummary, formatPnl, generateId } from '@/lib/finance'
 import { DEFAULT_FEE_CONFIGS } from '@/config/defaults'
 import type { FeeConfig, Stock } from '@/types'
+
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
 function createStock(trades: Stock['trades']): Stock {
   return {
@@ -15,6 +17,38 @@ function createStock(trades: Stock['trades']): Stock {
     updatedAt: '2026-01-01T00:00:00.000Z',
   }
 }
+
+function restoreGlobalCrypto(descriptor: PropertyDescriptor | undefined) {
+  if (descriptor) {
+    Object.defineProperty(globalThis, 'crypto', descriptor)
+  } else {
+    delete (globalThis as typeof globalThis & { crypto?: Crypto }).crypto
+  }
+}
+
+test('generateId 在 crypto.randomUUID 不可用时回退到 v4 UUID', () => {
+  const originalCrypto = Object.getOwnPropertyDescriptor(globalThis, 'crypto')
+
+  Object.defineProperty(globalThis, 'crypto', {
+    configurable: true,
+    value: {
+      getRandomValues(bytes: Uint8Array) {
+        for (let index = 0; index < bytes.length; index++) {
+          bytes[index] = index
+        }
+        return bytes
+      },
+    },
+  })
+
+  try {
+    const id = generateId()
+    assert.match(id, UUID_V4_PATTERN)
+    assert.equal(id, '00010203-0405-4607-8809-0a0b0c0d0e0f')
+  } finally {
+    restoreGlobalCrypto(originalCrypto)
+  }
+})
 
 test('港股买入自动手续费包含印花税和结算费', () => {
   const fees = autoCalcFees('BUY', 100, 100, 'HK', '00700')
