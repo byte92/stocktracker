@@ -59,9 +59,8 @@ function normalizeAiConfig(aiConfig?: LegacyAiConfig): AppConfig["aiConfig"] {
 
 function mergeAppConfig(config?: Partial<AppConfig>): AppConfig {
   return {
-    ...DEFAULT_APP_CONFIG,
-    ...config,
-    tradeMatchMode: config?.tradeMatchMode ?? DEFAULT_APP_CONFIG.tradeMatchMode,
+    version: config?.version ?? DEFAULT_APP_CONFIG.version,
+    defaultMarket: config?.defaultMarket ?? DEFAULT_APP_CONFIG.defaultMarket,
     feeConfigs: {
       ...DEFAULT_APP_CONFIG.feeConfigs,
       ...(config?.feeConfigs ?? {}),

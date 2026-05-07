@@ -11,7 +11,7 @@ import {
   type SeriesMarker,
   type MouseEventParams,
 } from 'lightweight-charts'
-import type { Market, Trade, TradeMatchMode } from '@/types'
+import type { Market, Trade } from '@/types'
 import { nextApiUrls } from '@/lib/api/endpoints'
 import { calcPerShareCost, add, mul, sub } from '@/lib/money'
 import { useI18n } from '@/lib/i18n'
@@ -64,12 +64,10 @@ export default function StockKline({
   symbol,
   market,
   trades,
-  matchMode = 'FIFO',
 }: {
   symbol: string
   market: Market
   trades: Trade[]
-  matchMode?: TradeMatchMode
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -202,7 +200,7 @@ export default function StockKline({
       .map(([time, value]) => ({ time: time as any, value }))
   }, [mappedTrades])
 
-  // 动态成本线（按设置的卖出成本匹配口径随时间变化）
+  // 动态成本线（卖出按 FIFO 匹配成本批次随时间变化）
   const costLineData = useMemo<LineData<any>[]>(() => {
     if (!data.length) return []
     const sortedTrades = [...trades]
@@ -221,12 +219,11 @@ export default function StockKline({
         } else {
           let remaining = t.quantity
           while (remaining > 0 && costQueue.length > 0) {
-            const lotIndex = matchMode === 'RECENT_LOTS' ? costQueue.length - 1 : 0
-            if (costQueue[lotIndex].quantity <= remaining) {
-              remaining = normalizeQuantity(sub(remaining, costQueue[lotIndex].quantity))
-              costQueue.splice(lotIndex, 1)
+            if (costQueue[0].quantity <= remaining) {
+              remaining = normalizeQuantity(sub(remaining, costQueue[0].quantity))
+              costQueue.shift()
             } else {
-              costQueue[lotIndex].quantity = normalizeQuantity(sub(costQueue[lotIndex].quantity, remaining))
+              costQueue[0].quantity = normalizeQuantity(sub(costQueue[0].quantity, remaining))
               remaining = 0
             }
           }
@@ -240,7 +237,7 @@ export default function StockKline({
       }
     }
     return result
-  }, [data, matchMode, trades])
+  }, [data, trades])
 
   const holdingData = useMemo<HistogramData<any>[]>(() => {
     if (!data.length) return []

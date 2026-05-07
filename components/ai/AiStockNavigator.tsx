@@ -8,7 +8,7 @@ import { calcStockSummary } from '@/lib/finance'
 import { useI18n } from '@/lib/i18n'
 
 export default function AiStockNavigator() {
-  const { stocks, config } = useStockStore()
+  const { stocks } = useStockStore()
   const { t, getAssetUnit, numberLocale } = useI18n()
 
   return (
@@ -25,7 +25,7 @@ export default function AiStockNavigator() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {stocks.map((stock) => {
-            const summary = calcStockSummary(stock, undefined, { matchMode: config.tradeMatchMode })
+            const summary = calcStockSummary(stock)
             const assetUnit = getAssetUnit(stock.market)
             return (
               <Link

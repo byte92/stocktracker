@@ -6,9 +6,6 @@ export type Market = 'A' | 'HK' | 'US' | 'FUND' | 'CRYPTO'
 // 交易类型：DIVIDEND 表示现金收益（股票分红、基金派息、加密资产收益等）
 export type TradeType = 'BUY' | 'SELL' | 'DIVIDEND'
 
-// 卖出成本匹配口径
-export type TradeMatchMode = 'FIFO' | 'RECENT_LOTS'
-
 // 单笔交易记录
 export interface Trade {
   id: string            // UUID
@@ -26,7 +23,7 @@ export interface Trade {
   updatedAt: string
 }
 
-// 单笔交易盈亏明细（计算型，按指定卖出成本匹配口径）
+// 单笔交易盈亏明细（计算型，卖出按 FIFO 匹配成本批次）
 export interface TradePnlDetail {
   tradeId: string
   type: TradeType
@@ -86,7 +83,6 @@ export interface AiConfig {
 export interface AppConfig {
   version: string
   defaultMarket: Market
-  tradeMatchMode: TradeMatchMode
   feeConfigs: Record<Market, FeeConfig>
   aiConfig: AiConfig
   currency: {
@@ -110,7 +106,6 @@ export interface TradeProfit {
 // 单个标的整体盈亏摘要（计算型）
 export interface StockSummary {
   stock: Stock
-  tradeMatchMode: TradeMatchMode // 卖出成本匹配口径
   totalBuyAmount: number    // 总买入（含费）
   totalSellAmount: number   // 总卖出（扣费）
   currentHolding: number    // 当前持仓数量

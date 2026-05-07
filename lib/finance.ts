@@ -5,7 +5,6 @@ import type {
   Stock,
   StockSummary,
   Trade,
-  TradeMatchMode,
   TradePnlDetail,
 } from "@/types";
 import { roundMoney, roundTo, calcCommission, calcAmount, calcPerShareCost, calcPnl, calcPnlPercent, add, sub, mul } from "./money";
@@ -28,7 +27,6 @@ type CostLot = {
 type MatchSellInput = {
   quantity: number;
   costQueue: CostLot[];
-  mode?: TradeMatchMode;
 };
 
 type MatchSellResult = {
@@ -41,22 +39,17 @@ function normalizeQuantity(value: number) {
   return Math.abs(value) < QUANTITY_EPSILON ? 0 : value;
 }
 
-function matchSellLots({
-  quantity,
-  costQueue,
-  mode = "FIFO",
-}: MatchSellInput): MatchSellResult {
+function matchSellLots({ quantity, costQueue }: MatchSellInput): MatchSellResult {
   let remaining = quantity;
   let costBasis = 0;
 
   while (remaining > QUANTITY_EPSILON && costQueue.length > 0) {
-    const lotIndex = mode === "RECENT_LOTS" ? costQueue.length - 1 : 0;
-    const lot = costQueue[lotIndex];
+    const lot = costQueue[0];
 
     if (lot.quantity <= remaining + QUANTITY_EPSILON) {
       costBasis = add(costBasis, mul(lot.price, lot.quantity));
       remaining = normalizeQuantity(sub(remaining, lot.quantity));
-      costQueue.splice(lotIndex, 1);
+      costQueue.shift();
     } else {
       costBasis = add(costBasis, mul(lot.price, remaining));
       lot.quantity = normalizeQuantity(sub(lot.quantity, remaining));
@@ -94,10 +87,6 @@ function applyDividendToCostQueue(dividendAmount: number, costQueue: CostLot[]) 
     excessAmount: normalizeQuantity(sub(dividendAmount, appliedAmount)),
   };
 }
-
-export type CalcStockSummaryOptions = {
-  matchMode?: TradeMatchMode;
-};
 
 function getMainlandFeeProfile(
   market: Market,
@@ -218,15 +207,13 @@ export function autoCalcFees(
   }
 }
 
-// 计算单个标的整体盈亏摘要（默认 FIFO，可指定卖出成本匹配口径）
+// 计算单个标的整体盈亏摘要（卖出明细按 FIFO 匹配成本批次）
 // 支持：BUY / SELL / DIVIDEND
 export function calcStockSummary(
   stock: Stock,
   currentPrice?: number,
-  options: CalcStockSummaryOptions = {},
 ): StockSummary {
   const trades = [...stock.trades].sort((a, b) => a.date.localeCompare(b.date));
-  const tradeMatchMode = options.matchMode ?? "FIFO";
 
   let totalBuyAmount = 0;
   let totalSellAmount = 0;
@@ -275,7 +262,6 @@ export function calcStockSummary(
       const { costBasis } = matchSellLots({
         quantity: trade.quantity,
         costQueue,
-        mode: tradeMatchMode,
       });
 
       const pnl = calcPnl(trade.netAmount, costBasis);
@@ -364,7 +350,6 @@ export function calcStockSummary(
 
   return {
     stock,
-    tradeMatchMode,
     totalBuyAmount,
     totalSellAmount,
     currentHolding,
