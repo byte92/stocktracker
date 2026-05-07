@@ -69,7 +69,7 @@ StockTracker is not designed for:
 - Local SQLite persistence, with no cloud account required by default.
 - Unified record model for A-shares including ETFs, HK stocks, US stocks, funds, and crypto assets.
 - Buy, sell, dividend, and crypto income records.
-- FIFO-based realized P/L, remaining cost basis, unrealized P/L, and total P/L.
+- FIFO-based sell P/L details, with broker-style diluted cost basis for current holding cost, unrealized P/L, and total P/L.
 - Market-specific automatic fee calculation with user-configurable rates.
 - Daily P/L only uses valid same-trading-day quotes, so closed markets or stale quotes are not counted as today's movement.
 

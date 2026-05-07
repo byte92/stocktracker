@@ -101,7 +101,7 @@ test('formatPnl keeps sign before currency symbol', () => {
   assert.equal(formatPnl(-123.45, 'HKD'), '-HK$123.45')
 })
 
-test('FIFO 计算已实现盈亏和剩余持仓成本', () => {
+test('FIFO 计算已实现盈亏，当前成本价按券商摊薄口径展示', () => {
   const stock = createStock([
     {
       id: 't1',
@@ -151,7 +151,7 @@ test('FIFO 计算已实现盈亏和剩余持仓成本', () => {
 
   assert.equal(summary.tradeMatchMode, 'FIFO')
   assert.equal(summary.currentHolding, 50)
-  assert.equal(Number(summary.avgCostPrice.toFixed(2)), 12.05)
+  assert.equal(Number(summary.avgCostPrice.toFixed(2)), -0.66)
   assert.equal(Number(summary.realizedPnl.toFixed(2)), 635.25)
   assert.equal(Number(summary.totalCommission.toFixed(2)), 17.25)
   assert.equal(summary.tradePnlDetails[0]?.remainingQuantity, 0)
@@ -161,6 +161,7 @@ test('FIFO 计算已实现盈亏和剩余持仓成本', () => {
   assert.equal(summary.tradePnlDetails[1]?.soldQuantity, 50)
   assert.equal(summary.tradePnlDetails[1]?.holdingAfterTrade, 200)
   assert.equal(summary.tradePnlDetails[2]?.holdingAfterTrade, 50)
+  assert.equal(Number(summary.tradePnlDetails[2]?.costBasis.toFixed(2)), 1607.5)
 })
 
 test('RECENT_LOTS 优先匹配最近买入批次计算已实现盈亏', () => {
@@ -213,7 +214,7 @@ test('RECENT_LOTS 优先匹配最近买入批次计算已实现盈亏', () => {
 
   assert.equal(summary.tradeMatchMode, 'RECENT_LOTS')
   assert.equal(summary.currentHolding, 50)
-  assert.equal(Number(summary.avgCostPrice.toFixed(2)), 10.05)
+  assert.equal(Number(summary.avgCostPrice.toFixed(2)), -0.66)
   assert.equal(Number(summary.realizedPnl.toFixed(2)), 535.25)
   assert.equal(summary.tradePnlDetails[0]?.remainingQuantity, 50)
   assert.equal(summary.tradePnlDetails[0]?.soldQuantity, 50)
@@ -284,13 +285,13 @@ test('FIFO 成本计算在除不尽场景下保持精确', () => {
   const summary = calcStockSummary(stock)
 
   assert.equal(summary.currentHolding, 1)
-  // 剩余 1 股成本 = 36.5 - 24.333334 = 12.166666 → roundMoney → 12.17
-  assert.equal(summary.avgCostPrice, 12.17)
+  // 当前成本价按券商摊薄口径：36.5 - 29.2 = 7.3
+  assert.equal(summary.avgCostPrice, 7.3)
   // 盈亏 = 29.2 - 24.333334 = 4.866666 → roundMoney → 4.87
   assert.equal(Number(summary.realizedPnl.toFixed(2)), 4.87)
 })
 
-test('分红会计入已实现盈亏，但不会重复摊薄剩余持仓成本', () => {
+test('分红会摊低当前持仓成本，未卖出前不重复计入已实现盈亏', () => {
   const stock = createStock([
     {
       id: 't1',
@@ -325,9 +326,306 @@ test('分红会计入已实现盈亏，但不会重复摊薄剩余持仓成本',
   const summary = calcStockSummary(stock)
 
   assert.equal(summary.totalDividend, 80)
-  assert.equal(summary.realizedPnl, 80)
+  assert.equal(summary.realizedPnl, 0)
   assert.equal(summary.currentHolding, 100)
-  assert.equal(Number(summary.avgCostPrice.toFixed(2)), 10.05)
+  assert.equal(summary.avgCostPrice, 9.25)
+})
+
+test('清仓后的新持仓成本不会被旧交易和旧分红影响', () => {
+  const stock = createStock([
+    {
+      id: 'old-buy',
+      stockId: 'stock-1',
+      type: 'BUY',
+      date: '2022-01-01',
+      price: 10,
+      quantity: 100,
+      commission: 0,
+      tax: 0,
+      totalAmount: 1000,
+      netAmount: 1000,
+      createdAt: '2022-01-01T00:00:00.000Z',
+      updatedAt: '2022-01-01T00:00:00.000Z',
+    },
+    {
+      id: 'old-dividend',
+      stockId: 'stock-1',
+      type: 'DIVIDEND',
+      date: '2022-02-01',
+      price: 1,
+      quantity: 100,
+      commission: 0,
+      tax: 0,
+      totalAmount: 100,
+      netAmount: 100,
+      createdAt: '2022-02-01T00:00:00.000Z',
+      updatedAt: '2022-02-01T00:00:00.000Z',
+    },
+    {
+      id: 'old-sell',
+      stockId: 'stock-1',
+      type: 'SELL',
+      date: '2022-03-01',
+      price: 10,
+      quantity: 100,
+      commission: 0,
+      tax: 0,
+      totalAmount: 1000,
+      netAmount: 1000,
+      createdAt: '2022-03-01T00:00:00.000Z',
+      updatedAt: '2022-03-01T00:00:00.000Z',
+    },
+    {
+      id: 'new-buy-1',
+      stockId: 'stock-1',
+      type: 'BUY',
+      date: '2025-01-01',
+      price: 8,
+      quantity: 100,
+      commission: 0,
+      tax: 0,
+      totalAmount: 800,
+      netAmount: 800,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+    },
+    {
+      id: 'current-dividend',
+      stockId: 'stock-1',
+      type: 'DIVIDEND',
+      date: '2025-02-01',
+      price: 0.5,
+      quantity: 100,
+      commission: 0,
+      tax: 0,
+      totalAmount: 50,
+      netAmount: 50,
+      createdAt: '2025-02-01T00:00:00.000Z',
+      updatedAt: '2025-02-01T00:00:00.000Z',
+    },
+    {
+      id: 'new-buy-2',
+      stockId: 'stock-1',
+      type: 'BUY',
+      date: '2025-03-01',
+      price: 7,
+      quantity: 100,
+      commission: 0,
+      tax: 0,
+      totalAmount: 700,
+      netAmount: 700,
+      createdAt: '2025-03-01T00:00:00.000Z',
+      updatedAt: '2025-03-01T00:00:00.000Z',
+    },
+  ])
+
+  const summary = calcStockSummary(stock)
+
+  assert.equal(summary.currentHolding, 200)
+  assert.equal(summary.avgCostPrice, 7.25)
+  assert.equal(summary.realizedPnl, 100)
+  assert.equal(summary.totalDividend, 150)
+  assert.equal(summary.tradePnlDetails.find((detail) => detail.tradeId === 'old-buy')?.remainingQuantity, 0)
+  assert.equal(summary.tradePnlDetails.find((detail) => detail.tradeId === 'new-buy-1')?.remainingQuantity, 100)
+  assert.equal(summary.tradePnlDetails.find((detail) => detail.tradeId === 'new-buy-2')?.remainingQuantity, 100)
+})
+
+test('工商银行当前持仓成本会扣除本轮持仓期分红', () => {
+  const stock: Stock = {
+    ...createStock([]),
+    code: '601398',
+    name: '工商银行',
+    trades: [
+      {
+        id: 'buy-2025-08-14',
+        stockId: 'stock-1',
+        type: 'BUY',
+        date: '2025-08-14',
+        price: 7.71,
+        quantity: 6500,
+        commission: 8.02,
+        tax: 0,
+        totalAmount: 50115,
+        netAmount: 50123.02,
+        createdAt: '2025-08-14T00:00:00.000Z',
+        updatedAt: '2025-08-14T00:00:00.000Z',
+      },
+      {
+        id: 'buy-2025-08-20',
+        stockId: 'stock-1',
+        type: 'BUY',
+        date: '2025-08-20',
+        price: 7.59,
+        quantity: 6600,
+        commission: 8.01,
+        tax: 0,
+        totalAmount: 50094,
+        netAmount: 50102.01,
+        createdAt: '2025-08-20T00:00:00.000Z',
+        updatedAt: '2025-08-20T00:00:00.000Z',
+      },
+      {
+        id: 'dividend-2025-12-12',
+        stockId: 'stock-1',
+        type: 'DIVIDEND',
+        date: '2025-12-12',
+        price: 0,
+        quantity: 13100,
+        commission: 0,
+        tax: 0,
+        totalAmount: 1852.34,
+        netAmount: 1852.34,
+        createdAt: '2025-12-12T00:00:00.000Z',
+        updatedAt: '2025-12-12T00:00:00.000Z',
+      },
+      {
+        id: 'buy-2026-05-06',
+        stockId: 'stock-1',
+        type: 'BUY',
+        date: '2026-05-06',
+        price: 7.36,
+        quantity: 13600,
+        commission: 10.01,
+        tax: 1,
+        totalAmount: 100096,
+        netAmount: 100107.01,
+        createdAt: '2026-05-06T00:00:00.000Z',
+        updatedAt: '2026-05-06T00:00:00.000Z',
+      },
+    ],
+  }
+
+  const summary = calcStockSummary(stock)
+
+  assert.equal(summary.currentHolding, 26700)
+  assert.equal(Number(summary.avgCostPrice.toFixed(4)), 7.4337)
+})
+
+test('成都银行部分卖出后成本价按券商摊薄口径计算', () => {
+  const stock: Stock = {
+    ...createStock([]),
+    code: '601838',
+    name: '成都银行',
+    trades: [
+      {
+        id: 'buy-2025-08-01',
+        stockId: 'stock-1',
+        type: 'BUY',
+        date: '2025-08-01',
+        price: 18.55,
+        quantity: 2700,
+        commission: 8.01,
+        tax: 0,
+        totalAmount: 50085,
+        netAmount: 50093.01,
+        createdAt: '2025-08-01T00:00:00.000Z',
+        updatedAt: '2025-08-01T00:00:00.000Z',
+      },
+      {
+        id: 'buy-2025-09-30',
+        stockId: 'stock-1',
+        type: 'BUY',
+        date: '2025-09-30',
+        price: 17.2,
+        quantity: 3000,
+        commission: 8.26,
+        tax: 0,
+        totalAmount: 51600,
+        netAmount: 51608.26,
+        createdAt: '2025-09-30T00:00:00.000Z',
+        updatedAt: '2025-09-30T00:00:00.000Z',
+      },
+      {
+        id: 'buy-2025-10-29',
+        stockId: 'stock-1',
+        type: 'BUY',
+        date: '2025-10-29',
+        price: 17.24,
+        quantity: 2900,
+        commission: 8,
+        tax: 0,
+        totalAmount: 49996,
+        netAmount: 50004,
+        createdAt: '2025-10-29T00:00:00.000Z',
+        updatedAt: '2025-10-29T00:00:00.000Z',
+      },
+      {
+        id: 'buy-2025-10-31',
+        stockId: 'stock-1',
+        type: 'BUY',
+        date: '2025-10-31',
+        price: 16.76,
+        quantity: 3000,
+        commission: 8.04,
+        tax: 0,
+        totalAmount: 50280,
+        netAmount: 50288.04,
+        createdAt: '2025-10-31T00:00:00.000Z',
+        updatedAt: '2025-10-31T00:00:00.000Z',
+      },
+      {
+        id: 'buy-2026-01-14-a',
+        stockId: 'stock-1',
+        type: 'BUY',
+        date: '2026-01-14',
+        price: 16.12,
+        quantity: 2000,
+        commission: 9.01,
+        tax: 0,
+        totalAmount: 32240,
+        netAmount: 32249.01,
+        createdAt: '2026-01-14T00:00:00.000Z',
+        updatedAt: '2026-01-14T00:00:00.000Z',
+      },
+      {
+        id: 'buy-2026-01-14-b',
+        stockId: 'stock-1',
+        type: 'BUY',
+        date: '2026-01-14',
+        price: 16.1,
+        quantity: 3500,
+        commission: 5.32,
+        tax: 0,
+        totalAmount: 56350,
+        netAmount: 56355.32,
+        createdAt: '2026-01-14T00:00:01.000Z',
+        updatedAt: '2026-01-14T00:00:01.000Z',
+      },
+      {
+        id: 'sell-2026-04-24',
+        stockId: 'stock-1',
+        type: 'SELL',
+        date: '2026-04-24',
+        price: 18.33,
+        quantity: 5500,
+        commission: 10.08,
+        tax: 51.42,
+        totalAmount: 100815,
+        netAmount: 100753.5,
+        createdAt: '2026-04-24T00:00:00.000Z',
+        updatedAt: '2026-04-24T00:00:00.000Z',
+      },
+      {
+        id: 'sell-2026-05-07',
+        stockId: 'stock-1',
+        type: 'SELL',
+        date: '2026-05-07',
+        price: 19.01,
+        quantity: 5800,
+        commission: 11.03,
+        tax: 56.23,
+        totalAmount: 110258,
+        netAmount: 110190.74,
+        createdAt: '2026-05-07T00:00:00.000Z',
+        updatedAt: '2026-05-07T00:00:00.000Z',
+      },
+    ],
+  }
+
+  const summary = calcStockSummary(stock)
+
+  assert.equal(summary.currentHolding, 5800)
+  assert.equal(Number(summary.avgCostPrice.toFixed(4)), 13.7333)
 })
 
 test('加密资产支持小数数量和交易所手续费', () => {
@@ -383,9 +681,9 @@ test('加密资产支持小数数量和交易所手续费', () => {
   const summary = calcStockSummary(stock, 65000)
 
   assert.equal(summary.currentHolding, 0.07)
-  assert.equal(summary.avgCostPrice, 50050)
+  assert.equal(summary.avgCostPrice, 45811.428571)
   assert.equal(Number(summary.realizedPnl.toFixed(2)), 296.7)
-  assert.equal(Number(summary.unrealizedPnl.toFixed(2)), 1046.5)
+  assert.equal(Number(summary.unrealizedPnl.toFixed(2)), 1343.2)
   assert.equal(Number(summary.totalPnl.toFixed(2)), 1343.2)
   assert.equal(summary.tradePnlDetails[0]?.soldQuantity, 0.03)
   assert.equal(summary.tradePnlDetails[0]?.remainingQuantity, 0.07)

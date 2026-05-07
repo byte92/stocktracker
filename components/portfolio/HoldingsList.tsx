@@ -275,6 +275,7 @@ function StockListRow({
   const assetUnit = getAssetUnit(stock.market)
   const marketLabel = getMarketLabel(stock.market)
   const formatNativeAmount = (amount: number) => formatWithNativeCurrency(amount, nativeCurrency, numberLocale)
+  const formatNativePrice = (amount: number) => formatWithNativeCurrency(amount, nativeCurrency, numberLocale, 4)
   const totalCost = summary.avgCostPrice * summary.currentHolding
   const avgCost = summary.avgCostPrice
   const realizedPnl = summary.realizedPnl
@@ -317,7 +318,7 @@ function StockListRow({
           {t('持仓 {quantity} {unit}', { quantity: formatQuantity(summary.currentHolding, numberLocale), unit: assetUnit })}
         </div>
         <div className="text-xs text-muted-foreground">
-          {t('均价 {amount}', { amount: formatNativeAmount(avgCost) })}
+          {t('均价 {amount}', { amount: formatNativePrice(avgCost) })}
         </div>
       </div>
 
@@ -371,9 +372,9 @@ function StockListRow({
   )
 }
 
-function formatWithNativeCurrency(amount: number, currency: Currency, locale: string) {
+function formatWithNativeCurrency(amount: number, currency: Currency, locale: string, fractionDigits = 2) {
   const symbol = CURRENCY_SYMBOLS[currency] ?? '¥'
-  return `${symbol}${amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${symbol}${amount.toLocaleString(locale, { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })}`
 }
 
 function formatQuantity(value: number, locale: string) {

@@ -8,7 +8,7 @@ import type {
   TradeMatchMode,
   TradePnlDetail,
 } from "@/types";
-import { roundMoney, calcCommission, calcAmount, calcPerShareCost, calcPnl, calcPnlPercent, add, sub, mul } from "./money";
+import { roundMoney, roundTo, calcCommission, calcAmount, calcPerShareCost, calcPnl, calcPnlPercent, add, sub, mul } from "./money";
 
 type FeeBreakdown = {
   commission: number;
@@ -65,6 +65,34 @@ function matchSellLots({
   }
 
   return { costBasis };
+}
+
+function getCostQueueQuantity(costQueue: CostLot[]) {
+  return costQueue.reduce((sum, item) => add(sum, item.quantity), 0);
+}
+
+function getCostQueueCost(costQueue: CostLot[]) {
+  return costQueue.reduce((sum, item) => add(sum, mul(item.price, item.quantity)), 0);
+}
+
+function applyDividendToCostQueue(dividendAmount: number, costQueue: CostLot[]) {
+  const currentQuantity = getCostQueueQuantity(costQueue);
+  const currentCost = getCostQueueCost(costQueue);
+  if (dividendAmount <= 0 || currentQuantity <= QUANTITY_EPSILON || currentCost <= 0) {
+    return { appliedAmount: 0, excessAmount: dividendAmount };
+  }
+
+  const appliedAmount = Math.min(dividendAmount, currentCost);
+  const perShareReduction = calcPerShareCost(appliedAmount, currentQuantity);
+
+  for (const lot of costQueue) {
+    lot.price = Math.max(0, sub(lot.price, perShareReduction));
+  }
+
+  return {
+    appliedAmount,
+    excessAmount: normalizeQuantity(sub(dividendAmount, appliedAmount)),
+  };
 }
 
 export type CalcStockSummaryOptions = {
@@ -207,6 +235,8 @@ export function calcStockSummary(
   let realizedPnl = 0;
   let totalDividend = 0;
   let tradeCount = 0;
+  let displayCostBasis = 0;
+  let embeddedRealizedPnl = 0;
 
   // 成本批次队列：{ price: 每股摊薄成本, quantity: 数量 }
   const costQueue: CostLot[] = [];
@@ -220,6 +250,7 @@ export function calcStockSummary(
       totalCommission = add(totalCommission, add(trade.commission, trade.tax));
       totalBuyAmount = add(totalBuyAmount, trade.netAmount);
       currentHolding = normalizeQuantity(add(currentHolding, trade.quantity));
+      displayCostBasis = add(displayCostBasis, trade.netAmount);
       costQueue.push({
         tradeId: trade.id,
         price: calcPerShareCost(trade.netAmount, trade.quantity),
@@ -251,6 +282,13 @@ export function calcStockSummary(
       const pnlPercent = calcPnlPercent(pnl, costBasis);
       realizedPnl = add(realizedPnl, pnl);
       currentHolding = normalizeQuantity(sub(currentHolding, trade.quantity));
+      displayCostBasis = sub(displayCostBasis, trade.netAmount);
+      if (currentHolding <= QUANTITY_EPSILON) {
+        displayCostBasis = 0;
+        embeddedRealizedPnl = 0;
+      } else {
+        embeddedRealizedPnl = add(embeddedRealizedPnl, pnl);
+      }
 
       tradePnlDetails.push({
         tradeId: trade.id,
@@ -265,7 +303,12 @@ export function calcStockSummary(
     } else if (trade.type === "DIVIDEND") {
       const dividendAmount = trade.netAmount;
       totalDividend = add(totalDividend, dividendAmount);
-      realizedPnl = add(realizedPnl, dividendAmount);
+      const { excessAmount } = applyDividendToCostQueue(dividendAmount, costQueue);
+      realizedPnl = add(realizedPnl, excessAmount);
+      if (currentHolding > QUANTITY_EPSILON) {
+        displayCostBasis = sub(displayCostBasis, dividendAmount);
+        embeddedRealizedPnl = add(embeddedRealizedPnl, excessAmount);
+      }
 
       tradePnlDetails.push({
         tradeId: trade.id,
@@ -303,18 +346,18 @@ export function calcStockSummary(
       : detail,
   );
 
-  // 剩余持仓成本
-  const remainingCost = costQueue.reduce(
-    (sum, item) => add(sum, mul(item.price, item.quantity)),
-    0,
-  );
-  const avgCostPrice = currentHolding > 0 ? roundMoney(calcPerShareCost(remainingCost, currentHolding)) : 0;
+  // 当前持仓成本价采用券商常见摊薄口径：买入增加成本，卖出实收和现金收益降低成本；清仓后重置。
+  const remainingCost = currentHolding > 0 ? displayCostBasis : 0;
+  const avgCostPrice = currentHolding > 0 ? roundTo(calcPerShareCost(remainingCost, currentHolding), 6) : 0;
   const unrealizedPnl =
     currentHolding > 0 && currentPrice
       ? sub(mul(currentPrice, currentHolding), remainingCost)
       : 0;
 
-  const totalPnl = add(realizedPnl, unrealizedPnl);
+  const totalPnl =
+    currentHolding > 0 && currentPrice
+      ? sub(add(realizedPnl, unrealizedPnl), embeddedRealizedPnl)
+      : realizedPnl;
   const totalInvested = totalBuyAmount;
   const totalPnlPercent =
     totalInvested > 0 ? calcPnlPercent(totalPnl, totalInvested) : 0;

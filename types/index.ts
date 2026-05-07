@@ -114,8 +114,8 @@ export interface StockSummary {
   totalBuyAmount: number    // 总买入（含费）
   totalSellAmount: number   // 总卖出（扣费）
   currentHolding: number    // 当前持仓数量
-  avgCostPrice: number      // 平均成本价
-  realizedPnl: number       // 已实现盈亏（含现金收益）
+  avgCostPrice: number      // 当前持仓成本价（券商摊薄口径）
+  realizedPnl: number       // 已实现盈亏（现金收益会优先摊低仍持有批次的成本）
   unrealizedPnl: number     // 未实现盈亏（需输入当前价格）
   totalPnl: number          // 总盈亏
   totalPnlPercent: number   // 总盈亏%

@@ -142,7 +142,7 @@ export function buildAgentAnswerDraft(plan: AgentPlan, skillResults: AgentSkillR
   if (holdingSummary) {
     addItem(facts, '当前持仓', holdingSummary.currentHolding, 'stock.getHolding')
     addItem(calculations, '平均成本价', holdingSummary.avgCostPrice, 'stock.getHolding')
-    addItem(calculations, '已实现收益', holdingSummary.realizedPnl, 'stock.getHolding', '来自本地交易记录，含已落库现金收益与手续费口径。')
+    addItem(calculations, '已实现收益', holdingSummary.realizedPnl, 'stock.getHolding', '来自本地交易记录；现金收益会优先摊低仍持有批次的成本。')
     addItem(calculations, '未实现收益', holdingSummary.unrealizedPnl, 'stock.getHolding', holdingSummary.pnlIncludesMarketPrice ? '按最新行情价计算。' : '未提供最新行情价时为 0。')
     addItem(calculations, '总收益', holdingSummary.totalPnl, 'stock.getHolding', holdingSummary.pnlIncludesMarketPrice ? '已实现收益 + 按最新行情价计算的未实现收益。' : '仅本地交易记录口径，未包含实时行情变化。')
     addItem(calculations, '手续费合计', holdingSummary.totalCommission, 'stock.getHolding')

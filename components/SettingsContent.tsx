@@ -585,7 +585,7 @@ export default function SettingsContent({
                 <option value="RECENT_LOTS">{t('最近批次（做 T 复盘口径）')}</option>
               </Select>
               <div className="text-xs text-muted-foreground">
-                {t('影响卖出已实现盈亏、剩余持仓成本和浮盈浮亏；默认 FIFO 保持传统会计口径。')}
+                {t('影响卖出已实现盈亏明细；当前持仓成本价按券商摊薄口径计算。')}
               </div>
             </div>
           </div>

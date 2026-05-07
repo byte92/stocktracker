@@ -302,7 +302,7 @@ export default function AddTradeModal({ stockId, stockCode, stockName, market, e
             <div className="space-y-3">
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                 <p className="text-xs text-muted-foreground mb-2">
-                  {t('录入{incomeLabel}后，系统会把税后到账计入已实现收益，不再重复摊薄持仓成本', { incomeLabel })}
+                  {t('录入{incomeLabel}后，系统会用税后到账摊低当前持仓成本；清仓后不会影响下一轮持仓', { incomeLabel })}
                 </p>
                 <p className="text-xs text-muted-foreground mb-3">
                   {t('当前可记录数量：{quantity} {unit}', { quantity: formatQuantity(availableHolding, numberLocale), unit: assetUnit })}

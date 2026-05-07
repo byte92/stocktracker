@@ -56,6 +56,7 @@ export default function StockDetail({ stock, onBack }: StockDetailProps) {
   const nativeCurrency = MARKET_CURRENCY[stock.market] || 'CNY'
   const quoteTimeLabel = quote?.timestamp ? formatQuoteTimestamp(quote.timestamp, t, formatDateTime) : null
   const formatAmountWithNative = (amount: number) => formatWithNativeCurrency(amount, nativeCurrency, numberLocale)
+  const formatPriceWithNative = (amount: number) => formatWithNativeCurrency(amount, nativeCurrency, numberLocale, 4)
   const formatPnlWithNative = (amount: number) => formatPnl(amount, nativeCurrency)
   const assetUnit = getAssetUnit(stock.market)
   const marketLabel = getMarketLabel(stock.market)
@@ -222,7 +223,7 @@ export default function StockDetail({ stock, onBack }: StockDetailProps) {
               {formatPnlWithNative(summary.realizedPnl)}
             </div>
             {summary.totalDividend > 0 && (
-              <div className="text-xs text-primary mt-0.5">{t('含{incomeLabel} {amount}', { incomeLabel, amount: formatAmountWithNative(summary.totalDividend) })}</div>
+              <div className="text-xs text-primary mt-0.5">{t('累计{incomeLabel} {amount}', { incomeLabel, amount: formatAmountWithNative(summary.totalDividend) })}</div>
             )}
           </Card>
 
@@ -232,7 +233,7 @@ export default function StockDetail({ stock, onBack }: StockDetailProps) {
               {formatQuantity(summary.currentHolding, numberLocale)} {assetUnit}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              {t('均成本 {amount}', { amount: formatAmountWithNative(summary.avgCostPrice) })}
+              {t('均成本 {amount}', { amount: formatPriceWithNative(summary.avgCostPrice) })}
             </div>
           </Card>
 
@@ -687,9 +688,9 @@ function formatOptionalMarketCap(value: number | null | undefined, currency = 'C
   return `${symbols[currency] ?? ''}${(value / unit.threshold).toFixed(2)}${unit.suffix}`
 }
 
-function formatWithNativeCurrency(amount: number, currency: keyof typeof CURRENCY_SYMBOLS, locale: string) {
+function formatWithNativeCurrency(amount: number, currency: keyof typeof CURRENCY_SYMBOLS, locale: string, fractionDigits = 2) {
   const symbol = CURRENCY_SYMBOLS[currency] ?? '¥'
-  return `${symbol}${amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${symbol}${amount.toLocaleString(locale, { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })}`
 }
 
 function formatQuantity(value: number, locale: string) {
