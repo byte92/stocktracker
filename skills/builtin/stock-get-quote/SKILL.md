@@ -1,14 +1,24 @@
 ---
-name: stock.getQuote
+name: stock-get-quote
 description: 读取单只本地持仓股票的行情和估值数据。
-version: 1
-scopes:
-  - quote.read
-inputs:
-  stockId: string
-dependencies:
-  - lib/StockPriceService.ts
-script: lib/agent/skills/stock.ts#stockGetQuoteSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: stock.getQuote
+    version: 1
+    handler: ./handler.ts#stockGetQuoteSkill
+    scopes:
+      - quote.read
+    inputSchema:
+      type: object
+      properties:
+        stockId:
+          type: string
+      required:
+        - stockId
+      additionalProperties: false
+    dependencies:
+      - lib/StockPriceService.ts
 ---
 
 # 使用场景

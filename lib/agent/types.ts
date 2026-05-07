@@ -74,9 +74,16 @@ export type AgentSkillResult<TResult = unknown> = {
 }
 
 export type AgentSkill<TArgs = Record<string, unknown>, TResult = unknown> = {
+  /** Agent Skills spec-compliant id, for example stock-get-holding. */
+  id?: string
+  /** Internal executable action name kept for current planner/executor calls. */
+  actionName?: string
   name: string
   description: string
   version?: number
+  license?: string
+  compatibility?: string
+  allowedTools?: string
   inputSchema: Record<string, unknown>
   requiredScopes: AgentDataScope[]
   dependencies?: string[]

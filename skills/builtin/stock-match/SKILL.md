@@ -1,14 +1,24 @@
 ---
-name: stock.match
+name: stock-match
 description: 根据用户输入匹配本地持仓中的股票名称或代码。
-version: 1
-scopes:
-  - stock.read
-inputs:
-  query: string
-dependencies:
-  - lib/agent/entity/stockMatcher.ts
-script: lib/agent/skills/stock.ts#stockMatchSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: stock.match
+    version: 1
+    handler: ./handler.ts#stockMatchSkill
+    scopes:
+      - stock.read
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+        - query
+      additionalProperties: false
+    dependencies:
+      - lib/agent/entity/stockMatcher.ts
 ---
 
 # 使用场景

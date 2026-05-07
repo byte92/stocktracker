@@ -1,15 +1,26 @@
 ---
-name: stock.getRecentTrades
+name: stock-get-recent-trades
 description: 读取单只股票最近交易记录。
-version: 1
-scopes:
-  - trade.read
-inputs:
-  stockId: string
-  limit: number
-dependencies:
-  - types/index.ts
-script: lib/agent/skills/stock.ts#stockGetRecentTradesSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: stock.getRecentTrades
+    version: 1
+    handler: ./handler.ts#stockGetRecentTradesSkill
+    scopes:
+      - trade.read
+    inputSchema:
+      type: object
+      properties:
+        stockId:
+          type: string
+        limit:
+          type: number
+      required:
+        - stockId
+      additionalProperties: false
+    dependencies:
+      - types/index.ts
 ---
 
 # 使用场景

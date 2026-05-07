@@ -1,15 +1,28 @@
 ---
-name: web.browse
+name: web-browse
 description: 使用独立 Playwright 浏览器打开用户给定的公开网页，并抽取页面标题和正文。
-version: 1
-scopes:
-  - network.fetch
-inputs:
-  url: string
-  extractPrompt: string?
-dependencies:
-  - playwright
-script: lib/agent/skills/browser.ts#webBrowseSkill
+compatibility: Requires Playwright browser runtime and public internet access.
+allowed-tools: Bash(pnpm:*) Bash(npx:*)
+metadata:
+  stocktracker:
+    kind: executable
+    action: web.browse
+    version: 1
+    handler: ./handler.ts#webBrowseSkill
+    scopes:
+      - network.fetch
+    inputSchema:
+      type: object
+      properties:
+        url:
+          type: string
+        extractPrompt:
+          type: string
+      required:
+        - url
+      additionalProperties: false
+    dependencies:
+      - playwright
 ---
 
 # 使用场景

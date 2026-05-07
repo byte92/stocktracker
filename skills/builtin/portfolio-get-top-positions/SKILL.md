@@ -1,14 +1,22 @@
 ---
-name: portfolio.getTopPositions
+name: portfolio-get-top-positions
 description: 读取组合中最值得关注的持仓，包括最大仓位、最大盈利、最大亏损和近期活跃标的。
-version: 1
-scopes:
-  - portfolio.read
-inputs:
-  limit: number
-dependencies:
-  - lib/finance.ts
-script: lib/agent/skills/portfolio.ts#portfolioGetTopPositionsSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: portfolio.getTopPositions
+    version: 1
+    handler: ./handler.ts#portfolioGetTopPositionsSkill
+    scopes:
+      - portfolio.read
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          type: number
+      additionalProperties: false
+    dependencies:
+      - lib/finance.ts
 ---
 
 # 使用场景

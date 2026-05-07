@@ -1,14 +1,24 @@
 ---
-name: market.resolveCandidate
+name: market-resolve-candidate
 description: 旧版兼容解析 Skill，内部转发到 security.resolve。
-version: 1
-scopes:
-  - quote.read
-inputs:
-  query: string
-dependencies:
-  - lib/agent/entity/stockMatcher.ts
-script: lib/agent/skills/market.ts#marketResolveCandidateSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: market.resolveCandidate
+    version: 1
+    handler: ./handler.ts#marketResolveCandidateSkill
+    scopes:
+      - quote.read
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+        - query
+      additionalProperties: false
+    dependencies:
+      - lib/agent/entity/stockMatcher.ts
 ---
 
 # 使用场景

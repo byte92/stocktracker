@@ -5,7 +5,7 @@ import type { AgentPlan, AgentResolvedSecurity, AgentSkillCall } from '@/lib/age
 import type { AiChatMessage, AiConfig, Market, Stock } from '@/types'
 import { callJsonCompletion } from '@/lib/external/llmProvider'
 import { buildPlannerSystemPrompt } from '@/lib/agent/planner/prompt'
-import { isPlannerNormalizedSkillName } from '@/lib/agent/planner/skillCatalog'
+import { isPlannerNormalizedSkillName, resolvePlannerSkillActionName } from '@/lib/agent/planner/skillCatalog'
 import {
   appendDomainCalculationFallback,
   appendExternalResearchFallback,
@@ -128,10 +128,18 @@ function extractSecurityQueryFromPlan(plan: AgentPlan) {
 async function normalizeLlmPlan(plan: AgentPlan, userMessage: string, stocks: Stock[]): Promise<AgentPlan> {
   if (plan.responseMode !== 'answer') return plan
 
-  const normalizedWebCalls = normalizeWebSkillCalls(plan, userMessage)
-  const baseCalls = plan.requiredSkills.filter((call) => !call.name.startsWith('web.'))
-  const normalizedPlan = {
+  const actionPlan = {
     ...plan,
+    requiredSkills: plan.requiredSkills.map((call) => ({
+      ...call,
+      name: resolvePlannerSkillActionName(call.name),
+    })),
+  }
+
+  const normalizedWebCalls = normalizeWebSkillCalls(actionPlan, userMessage)
+  const baseCalls = actionPlan.requiredSkills.filter((call) => !call.name.startsWith('web.'))
+  const normalizedPlan = {
+    ...actionPlan,
     requiredSkills: dedupeSkillCalls([...baseCalls, ...normalizedWebCalls]),
   }
 

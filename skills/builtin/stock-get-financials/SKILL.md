@@ -1,19 +1,35 @@
 ---
-name: stock.getFinancials
+name: stock-get-financials
 description: 获取股票最近财报关键数据（EPS、营收增长、盈利增长等），支持美股并为 A 股提供结构化财报兜底。
-version: 1
-scopes:
-  - quote.read
-  - network.fetch
-inputs:
-  symbol: string
-  market: Market
-  researchQuery: string?
-  sourceHints: string[]?
-dependencies:
-  - lib/agent/skills/stock.ts
-  - lib/agent/skills/web.ts
-script: lib/agent/skills/stock.ts#stockGetFinancialsSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: stock.getFinancials
+    version: 1
+    handler: ./handler.ts#stockGetFinancialsSkill
+    scopes:
+      - quote.read
+      - network.fetch
+    inputSchema:
+      type: object
+      properties:
+        symbol:
+          type: string
+        market:
+          type: string
+        researchQuery:
+          type: string
+        sourceHints:
+          type: array
+          items:
+            type: string
+      required:
+        - symbol
+        - market
+      additionalProperties: false
+    dependencies:
+      - lib/agent/skills/stock.ts
+      - lib/agent/skills/web.ts
 ---
 
 # 使用场景

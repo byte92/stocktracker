@@ -12,47 +12,64 @@ test('agent skill loader reads builtin markdown manifests', () => {
   const names = manifests.map((manifest) => manifest.name).sort()
 
   assert.deepEqual(names, [
-    'finance.calculate',
-    'market.getAnalysisContext',
-    'market.resolveCandidate',
-    'portfolio.getAnalysisContext',
-    'portfolio.getSummary',
-    'portfolio.getTopPositions',
-    'security.resolve',
-    'stock.getAnalysisContext',
-    'stock.getExternalQuote',
-    'stock.getFinancials',
-    'stock.getHolding',
-    'stock.getQuote',
-    'stock.getRecentTrades',
-    'stock.getTechnicalSnapshot',
-    'stock.match',
-    'web.browse',
-    'web.fetch',
-    'web.search',
+    'finance-calculate',
+    'market-get-analysis-context',
+    'market-resolve-candidate',
+    'portfolio-get-analysis-context',
+    'portfolio-get-summary',
+    'portfolio-get-top-positions',
+    'security-resolve',
+    'stock-get-analysis-context',
+    'stock-get-external-quote',
+    'stock-get-financials',
+    'stock-get-holding',
+    'stock-get-quote',
+    'stock-get-recent-trades',
+    'stock-get-technical-snapshot',
+    'stock-match',
+    'web-browse',
+    'web-fetch',
+    'web-search',
   ].sort())
 
-  const holding = manifests.find((manifest) => manifest.name === 'stock.getHolding')
+  const holding = manifests.find((manifest) => manifest.name === 'stock-get-holding')
   assert.ok(holding)
-  assert.equal(holding.inputs.stockId, 'string')
+  assert.equal(holding.actionName, 'stock.getHolding')
+  assert.equal(holding.handler, 'skills/builtin/stock-get-holding/handler.ts#stockGetHoldingSkill')
+  assert.equal((holding.inputSchema.properties as any).stockId.type, 'string')
   assert.deepEqual(holding.scopes, ['stock.read', 'quote.read'])
   assert.ok(holding.documentation.includes('使用场景'))
 
-  const resolver = manifests.find((manifest) => manifest.name === 'security.resolve')
+  const resolver = manifests.find((manifest) => manifest.name === 'security-resolve')
   assert.ok(resolver)
-  assert.equal(resolver.inputs.query, 'string')
+  assert.equal(resolver.actionName, 'security.resolve')
+  assert.equal((resolver.inputSchema.properties as any).query.type, 'string')
   assert.deepEqual(resolver.scopes, ['stock.read', 'quote.read'])
+})
+
+test('builtin skill manifests follow agentskills.io name and directory rules', () => {
+  const manifests = loadBuiltinSkillManifests()
+
+  for (const manifest of manifests) {
+    assert.match(manifest.name, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    assert.equal(path.basename(path.dirname(manifest.sourcePath)), manifest.name)
+    assert.ok(manifest.description.length > 0 && manifest.description.length <= 1024)
+  }
 })
 
 test('agent skill registry binds markdown metadata to internal executors', () => {
   const skill = getSkillByName('stock.getHolding')
 
   assert.ok(skill)
+  assert.equal(skill.id, 'stock-get-holding')
+  assert.equal(skill.actionName, 'stock.getHolding')
   assert.equal(skill.version, 1)
-  assert.equal(skill.inputSchema.stockId, 'string')
+  assert.equal((skill.inputSchema.properties as any).stockId.type, 'string')
   assert.deepEqual(skill.requiredScopes, ['stock.read', 'quote.read'])
   assert.ok(skill.sourcePath?.endsWith('skills/builtin/stock-get-holding/SKILL.md'))
   assert.equal(typeof skill.execute, 'function')
+
+  assert.equal(getSkillByName('stock-get-holding'), skill)
 })
 
 test('agent skill registry exposes fixed analysis task skills', () => {
@@ -80,10 +97,10 @@ test('agent planner prompt builds its skill catalog from registered manifests', 
   const prompt = buildPlannerSystemPrompt()
 
   assert.ok(prompt.includes('可用的 Skill（由注册表生成'))
-  assert.ok(prompt.includes('web.browse: 使用独立 Playwright 浏览器打开用户给定的公开网页'))
-  assert.ok(prompt.includes('stock.getHolding: 读取单只股票的本地持仓、成本、盈亏和备注'))
-  assert.ok(!prompt.includes('stock.getAnalysisContext:'))
-  assert.ok(!prompt.includes('portfolio.getAnalysisContext:'))
+  assert.ok(prompt.includes('web-browse (action: web.browse): 使用独立 Playwright 浏览器打开用户给定的公开网页'))
+  assert.ok(prompt.includes('stock-get-holding (action: stock.getHolding): 读取单只股票的本地持仓、成本、盈亏和备注'))
+  assert.ok(!prompt.includes('stock-get-analysis-context'))
+  assert.ok(!prompt.includes('portfolio-get-analysis-context'))
 })
 
 test('agent skill loader supports OpenClaw-style instruction skills', () => {
@@ -124,16 +141,17 @@ test('agent skill loader supports OpenClaw-style instruction skills', () => {
 
 test('agent skill loader supports stocktracker executable metadata extension', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stocktracker-executable-skills-'))
-  const skillDir = path.join(root, 'custom-holding')
+  const skillDir = path.join(root, 'stock-get-holding')
   fs.mkdirSync(skillDir)
   fs.writeFileSync(path.join(skillDir, 'SKILL.md'), [
     '---',
-    'name: stock.getHolding',
+    'name: stock-get-holding',
     'description: 使用标准 metadata.stocktracker 声明可执行 Skill。',
-    'version: 3',
     'metadata:',
     '  stocktracker:',
     '    kind: executable',
+    '    action: stock.getHolding',
+    '    version: 3',
     '    handler: lib/agent/skills/stock.ts#stockGetHoldingSkill',
     '    scopes:',
     '      - stock.read',
@@ -156,11 +174,46 @@ test('agent skill loader supports stocktracker executable metadata extension', (
 
   const manifests = loadConfiguredSkillManifests([root])
   assert.equal(manifests.length, 1)
+  assert.equal(manifests[0].name, 'stock-get-holding')
+  assert.equal(manifests[0].actionName, 'stock.getHolding')
+  assert.equal(manifests[0].version, 3)
   assert.equal(manifests[0].kind, 'executable')
   assert.equal(manifests[0].handler, 'lib/agent/skills/stock.ts#stockGetHoldingSkill')
   assert.deepEqual(manifests[0].scopes, ['stock.read', 'quote.read'])
   assert.equal(manifests[0].inputSchema.type, 'object')
   assert.deepEqual(manifests[0].inputSchema.required, ['stockId'])
+})
+
+test('agent skill loader resolves relative handler paths from skill package directory', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stocktracker-relative-handler-'))
+  const skillDir = path.join(root, 'stock-get-holding')
+  fs.mkdirSync(skillDir)
+  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), [
+    '---',
+    'name: stock-get-holding',
+    'description: 使用相对 handler 路径声明可执行 Skill。',
+    'metadata:',
+    '  stocktracker:',
+    '    kind: executable',
+    '    action: stock.getHolding',
+    '    handler: ./handler.ts#stockGetHoldingSkill',
+    '    scopes:',
+    '      - stock.read',
+    '    inputSchema:',
+    '      type: object',
+    '      properties:',
+    '        stockId:',
+    '          type: string',
+    '---',
+    '',
+    '# 使用场景',
+    '',
+    '用于测试 Skill 包内相对 handler。',
+  ].join('\n'))
+
+  const manifests = loadConfiguredSkillManifests([root])
+  assert.equal(manifests.length, 1)
+  assert.equal(manifests[0].handler, path.relative(process.cwd(), path.join(skillDir, 'handler.ts')) + '#stockGetHoldingSkill')
 })
 
 test('agent skill loader reads external skill manifest roots', () => {

@@ -1,16 +1,20 @@
 ---
-name: market.getAnalysisContext
+name: market-get-analysis-context
 description: 为固定大盘 AI 分析读取 A 股、港股、美股指数、技术指标和新闻上下文。
-version: 1
-scopes:
-  - market.read
-  - quote.read
-inputs: {}
-dependencies:
-  - lib/marketOverview.ts
-  - lib/technicalIndicators.ts
-script: lib/agent/skills/market.ts#marketGetAnalysisContextSkill
-prompt: lib/agent/prompts/analysis.ts#MARKET_ANALYSIS_PROMPT
+metadata:
+  stocktracker:
+    kind: executable
+    action: market.getAnalysisContext
+    version: 1
+    handler: ./handler.ts#marketGetAnalysisContextSkill
+    scopes:
+      - market.read
+      - quote.read
+    inputSchema: {}
+    dependencies:
+      - lib/marketOverview.ts
+      - lib/technicalIndicators.ts
+    prompt: lib/agent/prompts/analysis.ts#MARKET_ANALYSIS_PROMPT
 ---
 
 # 使用场景

@@ -18,10 +18,29 @@ const PLANNER_NORMALIZED_SKILLS = new Set([
 ])
 
 function isPlannerVisibleSkill(skill: AgentSkill) {
-  return !PLANNER_EXCLUDED_SKILL_PATTERNS.some((pattern) => pattern.test(skill.name))
+  const actionName = skill.actionName ?? skill.name
+  return !PLANNER_EXCLUDED_SKILL_PATTERNS.some((pattern) => pattern.test(actionName))
 }
 
 function formatInputSchema(inputSchema: Record<string, unknown>) {
+  const properties = inputSchema.properties && typeof inputSchema.properties === 'object' && !Array.isArray(inputSchema.properties)
+    ? inputSchema.properties as Record<string, unknown>
+    : null
+  if (properties) {
+    const required = Array.isArray(inputSchema.required) ? new Set(inputSchema.required.map(String)) : new Set<string>()
+    const compact = Object.entries(properties)
+      .map(([key, value]) => {
+        const optional = required.has(key) ? '' : '?'
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          const type = typeof (value as Record<string, unknown>).type === 'string' ? (value as Record<string, unknown>).type : 'unknown'
+          return `${key}${optional}: ${type}`
+        }
+        return `${key}${optional}: unknown`
+      })
+      .join(', ')
+    return compact ? `{ ${compact} }` : '{}'
+  }
+
   const entries = Object.entries(inputSchema)
   if (!entries.length) return '{}'
 
@@ -47,7 +66,11 @@ export function getPlannerVisibleSkills() {
 
 export function buildPlannerSkillCatalogText() {
   return getPlannerVisibleSkills()
-    .map((skill) => `- ${skill.name}: ${skill.description} args ${formatInputSchema(skill.inputSchema)}`)
+    .map((skill) => {
+      const publicName = skill.id ?? skill.name
+      const actionName = skill.actionName && skill.actionName !== publicName ? ` (action: ${skill.actionName})` : ''
+      return `- ${publicName}${actionName}: ${skill.description} args ${formatInputSchema(skill.inputSchema)}`
+    })
     .join('\n')
 }
 
@@ -57,4 +80,9 @@ export function isWebSkillName(name: string) {
 
 export function isPlannerNormalizedSkillName(name: string) {
   return PLANNER_NORMALIZED_SKILLS.has(name) || name.startsWith('web.')
+}
+
+export function resolvePlannerSkillActionName(name: string) {
+  const skill = getBuiltinSkills().find((item) => item.name === name || item.id === name || item.actionName === name)
+  return skill?.actionName ?? skill?.name ?? name
 }
