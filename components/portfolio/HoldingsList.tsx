@@ -17,7 +17,7 @@ import { calcStockSummary, formatPercent, formatPnl } from '@/lib/finance'
 import { CURRENCY_SYMBOLS, MARKET_CURRENCY, type Currency } from '@/lib/ExchangeRateService'
 import { getDailyQuotePnl, needsMarketHolidayCalendar, type MarketHolidayCalendar } from '@/lib/quoteDailyPnl'
 import { useI18n } from '@/lib/i18n'
-import type { Stock, TradeMatchMode } from '@/types'
+import type { Stock } from '@/types'
 import type { StockQuote } from '@/types/stockApi'
 
 type SortOption =
@@ -44,7 +44,7 @@ export default function HoldingsList({
 }) {
   const router = useRouter()
   const { t } = useI18n()
-  const { stocks, deleteStock, config } = useStockStore()
+  const { stocks, deleteStock } = useStockStore()
   const { convertAmountSync } = useCurrency()
   const [showAddStock, setShowAddStock] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; code: string } | null>(null)
@@ -58,7 +58,7 @@ export default function HoldingsList({
 
     async function loadQuotes() {
       const activeHoldings = stocks.filter((stock) =>
-        calcStockSummary(stock, undefined, { matchMode: config.tradeMatchMode }).currentHolding > 0
+        calcStockSummary(stock).currentHolding > 0
       )
 
       if (activeHoldings.length === 0) {
@@ -96,7 +96,7 @@ export default function HoldingsList({
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [stocks, config.tradeMatchMode])
+  }, [stocks])
 
   const visibleStocks = useMemo(() => {
     const now = new Date()
@@ -109,8 +109,8 @@ export default function HoldingsList({
 
           const leftQuote = quotesByStockId[left.id]
           const rightQuote = quotesByStockId[right.id]
-          const leftSummary = calcStockSummary(left, leftQuote?.price, { matchMode: config.tradeMatchMode })
-          const rightSummary = calcStockSummary(right, rightQuote?.price, { matchMode: config.tradeMatchMode })
+          const leftSummary = calcStockSummary(left, leftQuote?.price)
+          const rightSummary = calcStockSummary(right, rightQuote?.price)
           const leftCalendarPending = needsMarketHolidayCalendar(left.market) && !holidayCalendars[left.market] && holidayCalendarLoading
           const rightCalendarPending = needsMarketHolidayCalendar(right.market) && !holidayCalendars[right.market] && holidayCalendarLoading
           const leftDailyPnl = leftCalendarPending ? null : getDailyQuotePnl(leftSummary.currentHolding, leftQuote, left.market, now, holidayCalendars[left.market])
@@ -153,7 +153,7 @@ export default function HoldingsList({
         })
 
     return typeof limit === 'number' ? sorted.slice(0, limit) : sorted
-  }, [convertAmountSync, holidayCalendars, holidayCalendarLoading, limit, quotesByStockId, sortBy, stocks, config.tradeMatchMode])
+  }, [convertAmountSync, holidayCalendars, holidayCalendarLoading, limit, quotesByStockId, sortBy, stocks])
 
   return (
     <section className="space-y-3">
@@ -216,7 +216,6 @@ export default function HoldingsList({
                 preloadedQuote={quotesByStockId[stock.id] ?? null}
                 holidayCalendar={holidayCalendars[stock.market] ?? null}
                 holidayCalendarLoading={holidayCalendarLoading}
-                matchMode={config.tradeMatchMode}
                 onOpen={() => router.push(`/stock/${stock.id}`)}
                 onDelete={() => setDeleteTarget({ id: stock.id, name: stock.name, code: stock.code })}
               />
@@ -255,7 +254,6 @@ function StockListRow({
   preloadedQuote,
   holidayCalendar,
   holidayCalendarLoading,
-  matchMode,
   onOpen,
   onDelete,
 }: {
@@ -263,14 +261,13 @@ function StockListRow({
   preloadedQuote: StockQuote | null
   holidayCalendar: MarketHolidayCalendar | null
   holidayCalendarLoading: boolean
-  matchMode: TradeMatchMode
   onOpen: () => void
   onDelete: () => void
 }) {
   const { t, getAssetUnit, getMarketLabel, numberLocale } = useI18n()
   const { quote: liveQuote } = useStockQuote(stock.code, stock.market, { autoRefresh: true, refreshInterval: 60000 })
   const quote = liveQuote ?? preloadedQuote
-  const summary = calcStockSummary(stock, quote?.price, { matchMode })
+  const summary = calcStockSummary(stock, quote?.price)
   const nativeCurrency = MARKET_CURRENCY[stock.market] || 'CNY'
   const assetUnit = getAssetUnit(stock.market)
   const marketLabel = getMarketLabel(stock.market)

@@ -37,7 +37,7 @@ export default function AddTradeModal({ stockId, stockCode, stockName, market, e
       }
     : null
   const availableHolding = stockWithoutEditingTrade
-    ? calcStockSummary(stockWithoutEditingTrade, undefined, { matchMode: config.tradeMatchMode }).currentHolding
+    ? calcStockSummary(stockWithoutEditingTrade).currentHolding
     : 0
   const [type, setType] = useState<TradeType>('BUY')
   const [date, setDate] = useState(todayStr())

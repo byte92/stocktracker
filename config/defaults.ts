@@ -55,7 +55,6 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
 export const DEFAULT_APP_CONFIG: AppConfig = {
   version: '1.0.0',
   defaultMarket: 'A',
-  tradeMatchMode: 'FIFO',
   feeConfigs: DEFAULT_FEE_CONFIGS,
   aiConfig: DEFAULT_AI_CONFIG,
   currency: {

@@ -30,7 +30,7 @@ interface StockDetailProps {
 }
 
 export default function StockDetail({ stock, onBack }: StockDetailProps) {
-  const { deleteTrade, config } = useStockStore()
+  const { deleteTrade } = useStockStore()
   const { t, getAssetUnit, getMarketLabel, formatDateTime, numberLocale } = useI18n()
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [showEditStock, setShowEditStock] = useState(false)
@@ -52,7 +52,7 @@ export default function StockDetail({ stock, onBack }: StockDetailProps) {
   )
 
   const currentPriceNum = quote?.price || parseFloat(manualPrice) || undefined
-  const summary = calcStockSummary(stock, currentPriceNum, { matchMode: config.tradeMatchMode })
+  const summary = calcStockSummary(stock, currentPriceNum)
   const nativeCurrency = MARKET_CURRENCY[stock.market] || 'CNY'
   const quoteTimeLabel = quote?.timestamp ? formatQuoteTimestamp(quote.timestamp, t, formatDateTime) : null
   const formatAmountWithNative = (amount: number) => formatWithNativeCurrency(amount, nativeCurrency, numberLocale)
@@ -413,7 +413,7 @@ export default function StockDetail({ stock, onBack }: StockDetailProps) {
           </Card>
         )}
 
-        <StockKline symbol={stock.code} market={stock.market} trades={stock.trades} matchMode={config.tradeMatchMode} />
+        <StockKline symbol={stock.code} market={stock.market} trades={stock.trades} />
 
         {stock.note && (
           <Card className="border-border bg-card">

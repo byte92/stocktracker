@@ -31,7 +31,7 @@ type TodayPnlSnapshot = {
 }
 
 export default function PortfolioSummarySection() {
-  const { stocks, config } = useStockStore()
+  const { stocks } = useStockStore()
   const { displayCurrency, convertAmountSync, formatWithCurrency, rates } = useCurrency()
   const { t, numberLocale } = useI18n()
   const [expanded, setExpanded] = useState(false)
@@ -62,7 +62,7 @@ export default function PortfolioSummarySection() {
     let totalHolding = 0
 
     for (const stock of stocks) {
-      const summary = calcStockSummary(stock, undefined, { matchMode: config.tradeMatchMode })
+      const summary = calcStockSummary(stock)
       totalRealizedPnl += convertAmountSync(summary.realizedPnl, stock.market)
       totalInvested += convertAmountSync(summary.totalBuyAmount, stock.market)
       totalCommission += convertAmountSync(summary.totalCommission, stock.market)
@@ -81,7 +81,7 @@ export default function PortfolioSummarySection() {
       totalHolding,
       stockCount: stocks.length,
     }
-  }, [stocks, convertAmountSync, config.tradeMatchMode])
+  }, [stocks, convertAmountSync])
 
   useEffect(() => {
     let cancelled = false
@@ -98,7 +98,7 @@ export default function PortfolioSummarySection() {
 
     async function loadTodayPnl() {
       const activeHoldings = stocks
-        .map((stock) => ({ stock, summary: calcStockSummary(stock, undefined, { matchMode: config.tradeMatchMode }) }))
+        .map((stock) => ({ stock, summary: calcStockSummary(stock) }))
         .filter(({ summary }) => summary.currentHolding > 0)
 
       if (activeHoldings.length === 0) {
@@ -130,7 +130,7 @@ export default function PortfolioSummarySection() {
               return null
             }
 
-            const quotedSummary = calcStockSummary(stock, quote.price, { matchMode: config.tradeMatchMode })
+            const quotedSummary = calcStockSummary(stock, quote.price)
             const dailyPnl = getDailyQuotePnl(summary.currentHolding, quote, stock.market, now, holidayCalendars[stock.market])
             const rawMarketValue = summary.currentHolding * quote.price
             const rawCostBasis = quotedSummary.avgCostPrice * quotedSummary.currentHolding
@@ -208,7 +208,7 @@ export default function PortfolioSummarySection() {
     return () => {
       cancelled = true
     }
-  }, [stocks, displayCurrency, rates, config.tradeMatchMode, holidayCalendars, holidayCalendarLoading])
+  }, [stocks, displayCurrency, rates, holidayCalendars, holidayCalendarLoading])
 
   const todayPnlStatus = (() => {
     if (todayPnlLoading) return t('正在刷新当日行情')

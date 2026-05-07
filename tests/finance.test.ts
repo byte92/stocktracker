@@ -149,7 +149,6 @@ test('FIFO 计算已实现盈亏，当前成本价按券商摊薄口径展示', 
 
   const summary = calcStockSummary(stock)
 
-  assert.equal(summary.tradeMatchMode, 'FIFO')
   assert.equal(summary.currentHolding, 50)
   assert.equal(Number(summary.avgCostPrice.toFixed(2)), -0.66)
   assert.equal(Number(summary.realizedPnl.toFixed(2)), 635.25)
@@ -162,65 +161,6 @@ test('FIFO 计算已实现盈亏，当前成本价按券商摊薄口径展示', 
   assert.equal(summary.tradePnlDetails[1]?.holdingAfterTrade, 200)
   assert.equal(summary.tradePnlDetails[2]?.holdingAfterTrade, 50)
   assert.equal(Number(summary.tradePnlDetails[2]?.costBasis.toFixed(2)), 1607.5)
-})
-
-test('RECENT_LOTS 优先匹配最近买入批次计算已实现盈亏', () => {
-  const stock = createStock([
-    {
-      id: 't1',
-      stockId: 'stock-1',
-      type: 'BUY',
-      date: '2026-01-01',
-      price: 10,
-      quantity: 100,
-      commission: 5,
-      tax: 0,
-      totalAmount: 1000,
-      netAmount: 1005,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    },
-    {
-      id: 't2',
-      stockId: 'stock-1',
-      type: 'BUY',
-      date: '2026-01-02',
-      price: 12,
-      quantity: 100,
-      commission: 5,
-      tax: 0,
-      totalAmount: 1200,
-      netAmount: 1205,
-      createdAt: '2026-01-02T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
-    },
-    {
-      id: 't3',
-      stockId: 'stock-1',
-      type: 'SELL',
-      date: '2026-01-03',
-      price: 15,
-      quantity: 150,
-      commission: 5,
-      tax: 2.25,
-      totalAmount: 2250,
-      netAmount: 2242.75,
-      createdAt: '2026-01-03T00:00:00.000Z',
-      updatedAt: '2026-01-03T00:00:00.000Z',
-    },
-  ])
-
-  const summary = calcStockSummary(stock, undefined, { matchMode: 'RECENT_LOTS' })
-
-  assert.equal(summary.tradeMatchMode, 'RECENT_LOTS')
-  assert.equal(summary.currentHolding, 50)
-  assert.equal(Number(summary.avgCostPrice.toFixed(2)), -0.66)
-  assert.equal(Number(summary.realizedPnl.toFixed(2)), 535.25)
-  assert.equal(summary.tradePnlDetails[0]?.remainingQuantity, 50)
-  assert.equal(summary.tradePnlDetails[0]?.soldQuantity, 50)
-  assert.equal(summary.tradePnlDetails[1]?.remainingQuantity, 0)
-  assert.equal(summary.tradePnlDetails[1]?.soldQuantity, 100)
-  assert.equal(Number(summary.tradePnlDetails[2]?.costBasis.toFixed(2)), 1707.5)
 })
 
 test('佣金精度：避免 JS 浮点乘法的舍入错误', () => {
