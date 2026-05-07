@@ -9,6 +9,11 @@ export type LlmProviderMessage = {
 }
 
 const ANTHROPIC_RESPONSE_TOKEN_LIMIT = 4096
+type LlmJsonCompletionOptions = {
+  logFailureLevel?: 'debug' | 'info' | 'warn' | 'error'
+  logMetadata?: Record<string, unknown>
+  reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high'
+}
 
 function ensureApiBase(baseUrl: string) {
   const normalized = baseUrl.replace(/\/$/, '')
@@ -58,6 +63,35 @@ function parseStreamPayload(data: string) {
   }
 }
 
+function providerHost(baseUrl: string) {
+  try {
+    return new URL(baseUrl).host
+  } catch {
+    return baseUrl
+  }
+}
+
+function describeLlmConnectionError(error: unknown, baseUrl: string) {
+  const host = providerHost(baseUrl)
+  if (error instanceof Error && /timeout|timed out|aborted due to timeout/i.test(error.message)) {
+    return `AI 服务响应超时：${host} 未在预期时间内返回，请检查模型网关或稍后重试。`
+  }
+  if (error instanceof Error && /fetch failed|failed to fetch|ECONNREFUSED|ENOTFOUND|ECONNRESET|EHOSTUNREACH|Couldn'?t connect/i.test(error.message)) {
+    return `AI 服务不可用：无法连接到 ${host}，请检查 AI_BASE_URL 或本地模型网关是否已启动。`
+  }
+  return null
+}
+
+async function fetchLlm(input: string, init: RequestInit, context: Parameters<typeof loggedFetch>[2]) {
+  try {
+    return await loggedFetch(input, init, context)
+  } catch (error) {
+    const message = describeLlmConnectionError(error, input)
+    if (message) throw new Error(message)
+    throw error
+  }
+}
+
 function assertNormalFinish(finishReason: string | null, receivedText: boolean, onChunk: (chunk: string) => void) {
   if (!finishReason) {
     if (receivedText) {
@@ -84,10 +118,10 @@ function assertNormalFinish(finishReason: string | null, receivedText: boolean, 
   throw new Error(`AI 回复被提前终止：${finishReason}`)
 }
 
-export async function callJsonCompletion(config: AiConfig, systemPrompt: string, userPrompt: string, signal?: AbortSignal) {
+export async function callJsonCompletion(config: AiConfig, systemPrompt: string, userPrompt: string, signal?: AbortSignal, options: LlmJsonCompletionOptions = {}) {
   if (config.provider === 'anthropic-compatible') {
     const baseUrl = ensureApiBase(config.baseUrl)
-    const res = await loggedFetch(thirdPartyApiUrls.llmMessages(baseUrl), {
+    const res = await fetchLlm(thirdPartyApiUrls.llmMessages(baseUrl), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -106,6 +140,8 @@ export async function callJsonCompletion(config: AiConfig, systemPrompt: string,
       operation: 'llm.jsonCompletion',
       provider: config.provider,
       resource: config.model,
+      metadata: options.logMetadata,
+      failureLevel: options.logFailureLevel,
     })
 
     if (!res.ok) {
@@ -127,17 +163,18 @@ export async function callJsonCompletion(config: AiConfig, systemPrompt: string,
   }
 
   const baseUrl = ensureApiBase(config.baseUrl)
-  const res = await loggedFetch(thirdPartyApiUrls.llmChatCompletions(baseUrl), {
+  const res = await fetchLlm(thirdPartyApiUrls.llmChatCompletions(baseUrl), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${config.apiKey}`,
     },
-    body: JSON.stringify({
-      model: config.model,
-      temperature: config.temperature,
-      response_format: { type: 'json_object' },
-      messages: [
+      body: JSON.stringify({
+        model: config.model,
+        temperature: config.temperature,
+        ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
+        response_format: { type: 'json_object' },
+        messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
@@ -147,6 +184,8 @@ export async function callJsonCompletion(config: AiConfig, systemPrompt: string,
     operation: 'llm.jsonCompletion',
     provider: config.provider,
     resource: config.model,
+    metadata: options.logMetadata,
+    failureLevel: options.logFailureLevel,
   })
 
   if (!res.ok) {
@@ -162,7 +201,7 @@ export async function callJsonCompletion(config: AiConfig, systemPrompt: string,
 
 async function streamOpenAiCompatible(config: AiConfig, messages: LlmProviderMessage[], onChunk: (chunk: string) => void, signal?: AbortSignal) {
   const baseUrl = ensureApiBase(config.baseUrl)
-  const res = await loggedFetch(thirdPartyApiUrls.llmChatCompletions(baseUrl), {
+  const res = await fetchLlm(thirdPartyApiUrls.llmChatCompletions(baseUrl), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -227,7 +266,7 @@ async function streamAnthropicCompatible(config: AiConfig, messages: LlmProvider
       content: message.content,
     }))
 
-  const res = await loggedFetch(thirdPartyApiUrls.llmMessages(baseUrl), {
+  const res = await fetchLlm(thirdPartyApiUrls.llmMessages(baseUrl), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
