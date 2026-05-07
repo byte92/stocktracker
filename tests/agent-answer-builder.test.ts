@@ -71,10 +71,39 @@ test('answer builder creates quality warnings for trade review context', () => {
   assert.equal(draft.answerType, 'trade_review')
   assert.equal(draft.confidence, 'medium')
   assert.ok(draft.facts.some((item) => item.label === '最近交易' && String(item.value).includes('SELL')))
+  assert.ok(draft.facts.some((item) => item.label === '交易复盘方法论' && item.source === 'agent.knowledge.tradingMethodology'))
   assert.ok(draft.calculations.some((item) => item.label === '已实现收益' && item.source === 'stock.getHolding'))
   assert.ok(draft.qualityWarnings.some((item) => item.label === '单笔收益缺口'))
   assert.ok(draft.qualityWarnings.some((item) => item.label === '时间口径提醒'))
   assert.ok(draft.recommendations.some((item) => item.label === '回答方式'))
+})
+
+test('answer builder exposes methodology even without trade plan fields', () => {
+  const draft = buildAgentAnswerDraft(tradeReviewPlan, [
+    {
+      skillName: 'stock.getRecentTrades',
+      ok: true,
+      data: {
+        stockId: 'stock-1',
+        trades: [
+          {
+            type: 'BUY',
+            date: '2026-05-01',
+            price: 12,
+            quantity: 1000,
+            commission: 5,
+            tax: 0,
+            netAmount: 12005,
+          },
+        ],
+      },
+    },
+  ])
+
+  const methodology = draft.facts.find((item) => item.label === '交易复盘方法论')
+
+  assert.match(JSON.stringify(methodology?.value), /道氏理论/)
+  assert.match(JSON.stringify(methodology?.value), /事实账本/)
 })
 
 test('answer builder records failed skills as missing data', () => {

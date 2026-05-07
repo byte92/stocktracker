@@ -85,6 +85,7 @@ StockTracker 不适合：
 
 - 内置 AI 对话、组合分析、个股分析、大盘分析和分析历史。
 - AI Agent Runtime 按需调用 Skill，不把全部持仓粗暴塞进上下文。
+- 交易复盘内置事实账本、成本收益、仓位风险、行情位置和行为纪律等分析框架，并可解释道氏理论、趋势跟随、均值回归等常见方法论。
 - 支持未持仓标的查询，自动解析名称、代码和市场并抓取外部行情。
 - 支持公开网页搜索和受控网页抓取，用于新闻、公告、财报和大盘事件补充。
 - 提供受控的 AI Agent Trace 调试视图，方便排查意图识别和 Skill 调用链路。
@@ -255,6 +256,7 @@ docker/       Dockerfile、Compose 和部署说明
 - [数据接口清单](./docs/DATA_API_INVENTORY.md)
 - [Agent 架构设计](./docs/AGENT_ARCHITECTURE.md)
 - [Skill 标准](./docs/SKILL_STANDARD.md)
+- [交易纪律模型](./docs/TRADING_DISCIPLINE.md)
 - [AI 对话需求](./docs/AI_CHAT_REQUIREMENTS.md)
 - [行情获取说明](./docs/PRICE_FETCHING.md)
 - [开源发布检查清单](./docs/OPEN_SOURCE_CHECKLIST.md)
