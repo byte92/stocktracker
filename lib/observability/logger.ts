@@ -1,4 +1,5 @@
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+type LogColorMode = 'auto' | 'always' | 'never'
 
 const LEVEL_ORDER: Record<LogLevel, number> = {
   debug: 10,
@@ -9,6 +10,13 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 
 const REDACTED = '[redacted]'
 const REDACT_KEYS = /api[-_]?key|authorization|cookie|token|secret|password|access[-_]?key/i
+const ANSI_RESET = '\x1b[0m'
+const LEVEL_COLORS: Record<LogLevel, string> = {
+  debug: '\x1b[90m',
+  info: '\x1b[36m',
+  warn: '\x1b[33m',
+  error: '\x1b[31m',
+}
 
 type LogFields = Record<string, unknown>
 
@@ -21,10 +29,25 @@ function configuredLevel(): LogLevel | 'silent' {
   return 'info'
 }
 
+function configuredColorMode(): LogColorMode {
+  const raw = (process.env.APP_LOG_COLOR || process.env.LOG_COLOR || '').toLowerCase()
+  if (raw === '1' || raw === 'true' || raw === 'always') return 'always'
+  if (raw === '0' || raw === 'false' || raw === 'never') return 'never'
+  return 'auto'
+}
+
 function shouldLog(level: LogLevel) {
   const current = configuredLevel()
   if (current === 'silent') return false
   return LEVEL_ORDER[level] >= LEVEL_ORDER[current]
+}
+
+function shouldColorLog() {
+  const mode = configuredColorMode()
+  if (mode === 'always') return true
+  if (mode === 'never') return false
+  if (process.env.NO_COLOR) return false
+  return process.env.NODE_ENV === 'development'
 }
 
 function sanitize(value: unknown, depth = 0): unknown {
@@ -52,6 +75,12 @@ export function formatError(error: unknown) {
   }
 }
 
+export function formatLogLine(payload: LogFields, level: LogLevel, color = shouldColorLog()) {
+  const line = JSON.stringify(payload)
+  if (!color) return line
+  return `${LEVEL_COLORS[level]}${line}${ANSI_RESET}`
+}
+
 export function logEvent(level: LogLevel, event: string, fields: LogFields = {}) {
   if (!shouldLog(level)) return
 
@@ -62,7 +91,7 @@ export function logEvent(level: LogLevel, event: string, fields: LogFields = {})
     event,
     ...sanitizedFields,
   }
-  const line = JSON.stringify(payload)
+  const line = formatLogLine(payload, level)
 
   if (level === 'error') {
     console.error(line)

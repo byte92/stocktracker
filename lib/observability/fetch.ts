@@ -5,6 +5,7 @@ type FetchLogContext = {
   provider?: string
   resource?: string
   metadata?: Record<string, unknown>
+  failureLevel?: 'debug' | 'info' | 'warn' | 'error'
 }
 
 const SENSITIVE_QUERY_KEYS = /api[-_]?key|apikey|token|secret|password|access[-_]?key/i
@@ -62,11 +63,20 @@ export async function loggedFetch(input: RequestInfo | URL, init: RequestInit = 
     }
     return response
   } catch (error) {
-    logger.error('external.fetch.error', {
+    const failureFields = {
       ...fields,
       durationMs: Date.now() - startedAt,
       error,
-    })
+    }
+    if (context.failureLevel === 'debug') {
+      logger.debug('external.fetch.error', failureFields)
+    } else if (context.failureLevel === 'info') {
+      logger.info('external.fetch.error', failureFields)
+    } else if (context.failureLevel === 'warn') {
+      logger.warn('external.fetch.error', failureFields)
+    } else {
+      logger.error('external.fetch.error', failureFields)
+    }
     throw error
   }
 }
