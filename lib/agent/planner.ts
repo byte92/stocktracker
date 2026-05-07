@@ -4,127 +4,28 @@ import { MARKET_LABELS, SUPPORTED_MARKETS } from '@/config/defaults'
 import type { AgentPlan, AgentResolvedSecurity, AgentSkillCall } from '@/lib/agent/types'
 import type { AiChatMessage, AiConfig, Market, Stock } from '@/types'
 import { callJsonCompletion } from '@/lib/external/llmProvider'
+import { buildPlannerSystemPrompt } from '@/lib/agent/planner/prompt'
+import { isPlannerNormalizedSkillName } from '@/lib/agent/planner/skillCatalog'
+import {
+  appendDomainCalculationFallback,
+  appendExternalResearchFallback,
+  buildDefaultExternalStockSkillCalls,
+  buildDefaultStockSkillCalls,
+  buildExternalStockSkillCalls,
+  buildStockSkillCalls,
+} from '@/lib/agent/planner/skillCalls'
+import { dedupeSkillCalls, includesAny, textArg } from '@/lib/agent/planner/text'
+import { buildFallbackSearchQuery, normalizeWebSkillCalls } from '@/lib/agent/planner/web'
 
 const PORTFOLIO_KEYWORDS = ['组合', '仓位', '持仓', '风险', '亏损', '盈利', '收益', '回撤', '集中', '配置', '哪只', '哪些']
 const TRADE_KEYWORDS = ['交易', '复盘', '买入', '卖出', '分红', '派息', '成本', '加仓', '减仓']
 const OUT_OF_SCOPE_KEYWORDS = ['天气', '菜谱', '写代码', '编程', '电影', '小说', '医疗', '法律', '旅游', '翻译']
-const PUBLIC_DISCLOSURE_KEYWORDS = ['公告', '新闻', '政策', '财报', '年报', '季报', '业绩', '利好', '利空', '回购', '减持', '增持', '监管', '诉讼', '处罚', '重组', '并购']
-const CORPORATE_ACTION_KEYWORDS = ['分红', '派息', '股息', '除权', '除息', '股权登记', '利润分配']
-const EXTERNAL_TIMING_KEYWORDS = ['最新', '最近', '下一次', '下次', '什么时候', '哪天', '时间', '要', '即将', '预案', '实施']
-const DIVIDEND_ESTIMATE_PATTERNS = [
-  /(预计|预估|估算|估计|大概).*(分红|派息|股息|现金收益|能分|能拿|到账)/,
-  /(分红|派息|股息|现金收益).*(我|持仓|手里|这次|下次|下一次|预计|预估|估算|估计|大概|能分|能拿|到账)/,
-  /(我)?能分多少|分多少|能拿多少|到账多少|派多少钱/,
-]
-
-function includesAny(content: string, keywords: string[]) {
-  return keywords.some((keyword) => content.includes(keyword))
-}
 
 const EXPLICIT_PORTFOLIO_KEYWORDS = ['组合', '全部', '整体', '所有', '每只', '哪些', '哪只', '仓位', '配置']
 const FOLLOW_UP_STOCK_KEYWORDS = ['收益', '盈利', '亏损', '成本', '均价', '平均', '持仓', '分红', '派息', '手续费', '操作', '建议', '怎么看', '怎么样', '多少']
 const LLM_PLANNER_TIMEOUT_MS = 8_000
 
-function buildStockSkillCalls(stock: Stock, userMessage: string): AgentSkillCall[] {
-  const skills: AgentSkillCall[] = buildDefaultStockSkillCalls(stock)
-  appendUrlBrowseFallback(skills, userMessage)
-  appendExternalResearchFallback(skills, userMessage, stock)
-  appendDomainCalculationFallback(skills, userMessage, stock)
-  return dedupeSkillCalls(skills)
-}
-
-function buildDefaultStockSkillCalls(stock: Stock): AgentSkillCall[] {
-  return [
-    { name: 'stock.getHolding', args: { stockId: stock.id }, reason: '用户询问单个标的，需要读取本地持仓摘要' },
-    { name: 'stock.getRecentTrades', args: { stockId: stock.id, limit: 8 }, reason: '单个标的分析需要结合最近交易节奏' },
-    { name: 'stock.getQuote', args: { stockId: stock.id }, reason: '单个标的分析需要读取最新行情和估值数据' },
-    { name: 'stock.getTechnicalSnapshot', args: { stockId: stock.id }, reason: '走势健康度需要技术指标摘要' },
-  ]
-}
-
-type StockSearchTarget = Pick<Stock, 'code' | 'name' | 'market'>
 type ExternalStockTarget = Pick<SecurityCandidate, 'code' | 'name' | 'market'>
-
-function buildExternalStockSkillCalls(target: ExternalStockTarget, userMessage: string): AgentSkillCall[] {
-  const skills: AgentSkillCall[] = buildDefaultExternalStockSkillCalls(target)
-  appendUrlBrowseFallback(skills, userMessage)
-  appendExternalResearchFallback(skills, userMessage, target)
-  return dedupeSkillCalls(skills)
-}
-
-function buildDefaultExternalStockSkillCalls(target: ExternalStockTarget): AgentSkillCall[] {
-  return [
-    { name: 'stock.getExternalQuote', args: { symbol: target.code, market: target.market }, reason: '用户询问未持仓标的，需要抓取外部行情和估值数据' },
-    { name: 'stock.getTechnicalSnapshot', args: { symbol: target.code, market: target.market }, reason: '用户询问未持仓标的走势，需要抓取外部 K 线并计算技术指标' },
-  ]
-}
-
-function dedupeSkillCalls(calls: AgentSkillCall[]) {
-  const seen = new Set<string>()
-  const result: AgentSkillCall[] = []
-  for (const call of calls) {
-    const key = `${call.name}:${JSON.stringify(call.args)}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    result.push(call)
-  }
-  return result
-}
-
-function buildFallbackSearchQuery(target: StockSearchTarget, content: string) {
-  return [target.name, target.code, content].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
-}
-
-function needsExternalResearch(content: string) {
-  const asksPublicDisclosure = includesAny(content, PUBLIC_DISCLOSURE_KEYWORDS)
-  const asksCorporateActionTiming = includesAny(content, CORPORATE_ACTION_KEYWORDS)
-    && includesAny(content, EXTERNAL_TIMING_KEYWORDS)
-  return asksPublicDisclosure || asksCorporateActionTiming
-}
-
-function hasResearchSkill(calls: AgentSkillCall[]) {
-  return calls.some((call) => call.name === 'web.search' || call.name === 'web.fetch' || call.name === 'web.browse')
-}
-
-function needsDividendEstimate(content: string) {
-  return DIVIDEND_ESTIMATE_PATTERNS.some((pattern) => pattern.test(content))
-}
-
-function hasFinanceCalculationSkill(calls: AgentSkillCall[]) {
-  return calls.some((call) => call.name === 'finance.calculate')
-}
-
-function appendDomainCalculationFallback(calls: AgentSkillCall[], userMessage: string, stock: Stock) {
-  if (!needsDividendEstimate(userMessage) || hasFinanceCalculationSkill(calls)) return
-  calls.push({
-    name: 'finance.calculate',
-    args: { type: 'dividend.estimate', stockId: stock.id },
-    reason: '用户询问持仓相关的分红现金估算，需要执行受控业务域计算',
-  })
-}
-
-function appendExternalResearchFallback(calls: AgentSkillCall[], userMessage: string, target?: StockSearchTarget) {
-  if (!needsExternalResearch(userMessage) || hasResearchSkill(calls)) return
-  calls.push({
-    name: 'web.search',
-    args: {
-      query: target ? buildFallbackSearchQuery(target, userMessage) : userMessage,
-      limit: 5,
-      searchLimit: 10,
-    },
-    reason: '用户询问系统本地持仓/行情之外的公开财务或披露信息，需要用公开搜索补充上下文',
-  })
-}
-
-function appendUrlBrowseFallback(calls: AgentSkillCall[], userMessage: string) {
-  const urls = extractUrls(userMessage)
-  if (!urls.length || calls.some((call) => call.name === 'web.browse')) return
-  calls.push({
-    name: 'web.browse',
-    args: { url: urls[0], extractPrompt: stripUrls(userMessage) || userMessage },
-    reason: '用户消息包含 URL，需要用浏览器打开页面并提取正文',
-  })
-}
 
 function inferMarketFromCode(code: string): Market | null {
   if (/^\d{6}$/.test(code)) return 'A'
@@ -144,158 +45,6 @@ function inferMarketFromUserIntent(content: string, code: string): Market | null
 
 function marketOptionsText() {
   return SUPPORTED_MARKETS.map((market) => `${MARKET_LABELS[market]}（${market}）`).join('、')
-}
-
-const PLANNER_SYSTEM_PROMPT = [
-  '你是 StockTracker Agent Planner。你的唯一任务是：根据用户问题输出一个 JSON 计划。',
-  '你必须严格输出以下 JSON 格式，不要包含任何其他文字：',
-  '{',
-  '  "intent": "stock_analysis | portfolio_risk | portfolio_summary | trade_review | market_question | out_of_scope",',
-  '  "entities": [{ "type": "stock | market | portfolio", "raw": "原文", "code": "代码(可选)", "market": "A|HK|US|FUND|CRYPTO(可选)", "confidence": 0.0-1.0 }],',
-  '  "requiredSkills": [{ "name": "skill名称", "args": {}, "reason": "调用原因" }],',
-  '  "responseMode": "answer | clarify | refuse",',
-  '  "clarifyQuestion": "需澄清时间问题(仅 clarify 时填写)"',
-  '}',
-  '',
-  '可用的 Skill：',
-  '- stock.match: 匹配持仓中的标的名称或代码',
-  '- stock.getHolding: 读取某个标的的持仓摘要',
-  '- stock.getRecentTrades: 读取最近交易记录',
-  '- stock.getQuote: 读取行情和估值',
-  '- stock.getTechnicalSnapshot: 读取技术指标摘要',
-  '- stock.getExternalQuote: 抓取未持仓标的行情',
-  '- portfolio.getSummary: 读取组合总览',
-  '- portfolio.getTopPositions: 读取最大仓位/盈亏',
-  '- security.resolve: 基础证券实体解析，将名称/代码/简称解析为标准 code、name、market 和持仓状态',
-  '- market.resolveCandidate: 旧版兼容解析 Skill；新计划应优先使用 security.resolve',
-  '- stock.getFinancials: 获取最近财报数据；args 可带 researchQuery/sourceHints，供结构化数据不可用时继续 web.search',
-  '- finance.calculate: 执行受控的投资业务域计算；当前支持 { type: "dividend.estimate", stockId/code/symbol, quantity?, cashPerShare?, dividendPer10Shares? }',
-  '- web.search: 搜索公开网页。args 支持 { query, queries?, sourceHints?, limit?, searchLimit? }，query/queries/sourceHints 由你根据用户问题抽取，不会被代码按金融场景二次改写',
-  '- web.browse: 使用独立 Playwright 浏览器打开用户明确给出的网页 URL，抽取页面标题和正文。args 支持 { url, extractPrompt? }',
-  '- web.fetch: 发起基础 HTTP/API 请求，仅用于白名单金融接口或静态文本。args 支持 { url, method?, headers?, body?, extractPrompt? }',
-  '',
-  '规则：',
-  '- 如果用户问题与投资标的、持仓、交易或市场无关（天气/编程/娱乐等），intent 设为 out_of_scope，responseMode 设为 refuse',
-  '- 如果标的不明确，responseMode 设为 clarify',
-  '- 如果用户询问新闻、公告、政策、财报、业绩、分红/派息、除权除息、股权登记日、利润分配、利好利空、今日发生了什么、外部页面内容或任何当前上下文没有的数据，必须规划 web.browse、web.search 或 web.fetch 补充上下文',
-  '- 如果用户要求本系统业务域内的计算（例如“预计这次我能分多少”“按当前持仓能拿多少分红”），必须规划 finance.calculate；缺少分红金额等外部事实时，同时规划 web.search 或让 finance.calculate 触发后续检索',
-  '- 如果用户给了明确网页 URL，必须优先规划 web.browse，并用 extractPrompt 写清楚要从页面提取什么',
-  '- web.search query 必须是可独立搜索的短句，包含你从用户问题中抽取的标的、主题、时间范围；不要把 URL 原文放进 query；如果需要权威来源，用 sourceHints 表达，而不是依赖代码补词',
-  '- 如果用户提到的标的还没有标准 code + market，必须先规划 security.resolve，并且 args.query 只放原始标的名称或代码，例如“高德红外”“五粮液”“科创50ETF”，不要放整句问题',
-  '- stock.getExternalQuote、stock.getTechnicalSnapshot、stock.getFinancials 只能在已知 code + market 后规划；不要把中文名称放进 symbol',
-  '- 只规划数据读取 Skill，不要规划分析 Skill（如 getAnalysisContext）',
-  '- args 中的值从用户消息中提取，不要编造',
-].join('\n')
-
-function textArg(args: Record<string, unknown> | undefined, keys: string[]) {
-  if (!args) return ''
-  for (const key of keys) {
-    const value = args[key]
-    if (typeof value === 'string' && value.trim()) return value.trim()
-  }
-  return ''
-}
-
-function stringArrayArg(args: Record<string, unknown> | undefined, key: string) {
-  const value = args?.[key]
-  if (!Array.isArray(value)) return []
-  return Array.from(new Set(
-    value
-      .map((item) => (typeof item === 'string' ? item.replace(/\s+/g, ' ').trim() : ''))
-      .filter(Boolean),
-  ))
-}
-
-function extractUrls(content: string) {
-  const matches = content.match(/https?:\/\/[^\s，。！？、]+/g) ?? []
-  return Array.from(new Set(matches.map((item) => item.replace(/[)\]}）】]+$/, ''))))
-}
-
-function stripUrls(content: string) {
-  return content.replace(/https?:\/\/[^\s，。！？、]+/g, '').replace(/\s+/g, ' ').trim()
-}
-
-function normalizeWebSearchCall(call: AgentSkillCall, userMessage: string, target?: StockSearchTarget): AgentSkillCall {
-  const query = textArg(call.args, ['query'])
-  const targetPrefix = target ? [target.name, target.code].filter(Boolean).join(' ') : ''
-  const baseQuery = stripUrls(query || userMessage) || userMessage
-  const shouldPrefix = targetPrefix && ![target?.name, target?.code].some((value) => value && baseQuery.includes(value))
-  const normalizedQuery = [shouldPrefix ? targetPrefix : '', baseQuery].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
-  const queries = stringArrayArg(call.args, 'queries')
-  const sourceHints = stringArrayArg(call.args, 'sourceHints')
-  return {
-    name: 'web.search',
-    args: {
-      ...call.args,
-      query: normalizedQuery,
-      ...(queries.length ? { queries } : {}),
-      ...(sourceHints.length ? { sourceHints } : {}),
-      limit: call.args.limit ?? 5,
-      searchLimit: call.args.searchLimit ?? 10,
-    },
-    reason: call.reason || '模型判断需要公开网页补充上下文',
-  }
-}
-
-function normalizeWebFetchCall(call: AgentSkillCall, userMessage: string): AgentSkillCall | null {
-  const urls = extractUrls(userMessage)
-  const url = textArg(call.args, ['url']) || urls[0] || ''
-  if (!url) return null
-  return {
-    name: 'web.fetch',
-    args: {
-      ...call.args,
-      url,
-      method: call.args.method ?? 'GET',
-      extractPrompt: textArg(call.args, ['extractPrompt']) || userMessage,
-    },
-    reason: call.reason || '模型判断需要抓取用户给出的外部页面',
-  }
-}
-
-function normalizeWebBrowseCall(call: AgentSkillCall, userMessage: string): AgentSkillCall | null {
-  const urls = extractUrls(userMessage)
-  const url = textArg(call.args, ['url']) || urls[0] || ''
-  if (!url) return null
-  return {
-    name: 'web.browse',
-    args: {
-      ...call.args,
-      url,
-      extractPrompt: textArg(call.args, ['extractPrompt']) || stripUrls(userMessage) || userMessage,
-    },
-    reason: call.reason || '模型判断需要用浏览器打开用户给出的外部页面',
-  }
-}
-
-function normalizeWebSkillCalls(plan: AgentPlan, userMessage: string, target?: StockSearchTarget) {
-  const calls: AgentSkillCall[] = []
-  for (const call of plan.requiredSkills) {
-    if (call.name === 'web.search') {
-      calls.push(normalizeWebSearchCall(call, userMessage, target))
-      continue
-    }
-    if (call.name === 'web.browse') {
-      const normalized = normalizeWebBrowseCall(call, userMessage)
-      if (normalized) calls.push(normalized)
-      continue
-    }
-    if (call.name === 'web.fetch') {
-      const normalized = normalizeWebFetchCall(call, userMessage)
-      if (normalized) calls.push(normalized)
-    }
-  }
-
-  const urls = extractUrls(userMessage)
-  if (urls.length && !calls.some((call) => call.name === 'web.browse')) {
-    calls.push({
-      name: 'web.browse',
-      args: { url: urls[0], extractPrompt: stripUrls(userMessage) || userMessage },
-      reason: '用户消息包含 URL，需要用浏览器打开页面内容补充上下文',
-    })
-  }
-
-  return calls
 }
 
 function normalizeFinanceCalculationCall(call: AgentSkillCall, stock: Stock, userMessage: string): AgentSkillCall {
@@ -352,22 +101,7 @@ function buildModelExternalStockSkillCalls(target: ExternalStockTarget, plan: Ag
 }
 
 function passthroughModelContextCalls(plan: AgentPlan) {
-  const replaced = new Set([
-    'security.resolve',
-    'market.resolveCandidate',
-    'stock.match',
-    'stock.getHolding',
-    'stock.getRecentTrades',
-    'stock.getQuote',
-    'stock.getExternalQuote',
-    'stock.getTechnicalSnapshot',
-    'stock.getFinancials',
-    'finance.calculate',
-    'web.browse',
-    'web.search',
-    'web.fetch',
-  ])
-  return plan.requiredSkills.filter((call) => !replaced.has(call.name))
+  return plan.requiredSkills.filter((call) => !isPlannerNormalizedSkillName(call.name))
 }
 
 function needsResolvedSecurity(call: AgentSkillCall) {
@@ -395,7 +129,7 @@ async function normalizeLlmPlan(plan: AgentPlan, userMessage: string, stocks: St
   if (plan.responseMode !== 'answer') return plan
 
   const normalizedWebCalls = normalizeWebSkillCalls(plan, userMessage)
-  const baseCalls = plan.requiredSkills.filter((call) => call.name !== 'web.browse' && call.name !== 'web.search' && call.name !== 'web.fetch')
+  const baseCalls = plan.requiredSkills.filter((call) => !call.name.startsWith('web.'))
   const normalizedPlan = {
     ...plan,
     requiredSkills: dedupeSkillCalls([...baseCalls, ...normalizedWebCalls]),
@@ -497,7 +231,7 @@ async function planViaLLM(userMessage: string, stocks: Stock[], history: AiChatM
     `用户问题：${userMessage}`,
   ].filter(Boolean).join('\n')
 
-  const raw = await callJsonCompletion(aiConfig, PLANNER_SYSTEM_PROMPT, userPrompt, AbortSignal.timeout(LLM_PLANNER_TIMEOUT_MS))
+  const raw = await callJsonCompletion(aiConfig, buildPlannerSystemPrompt(), userPrompt, AbortSignal.timeout(LLM_PLANNER_TIMEOUT_MS))
   // 提取 JSON（可能有 markdown 代码块包裹）
   const json = raw.replace(/```(?:json)?\s*/g, '').replace(/```\s*$/g, '').trim()
   const parsed = JSON.parse(json)

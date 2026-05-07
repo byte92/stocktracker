@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { getSkillByName } from '@/lib/agent/skills/registry'
 import { loadBuiltinSkillManifests, loadConfiguredSkillManifests } from '@/lib/agent/skills/loader'
+import { buildPlannerSystemPrompt } from '@/lib/agent/planner/prompt'
 
 test('agent skill loader reads builtin markdown manifests', () => {
   const manifests = loadBuiltinSkillManifests()
@@ -73,6 +74,16 @@ test('agent skill registry exposes fixed analysis task skills', () => {
   assert.deepEqual(marketSkill.requiredScopes, ['market.read', 'quote.read'])
   assert.equal(marketSkill.prompt, 'lib/agent/prompts/analysis.ts#MARKET_ANALYSIS_PROMPT')
   assert.ok(marketSkill.sourcePath?.endsWith('skills/builtin/market-get-analysis-context/SKILL.md'))
+})
+
+test('agent planner prompt builds its skill catalog from registered manifests', () => {
+  const prompt = buildPlannerSystemPrompt()
+
+  assert.ok(prompt.includes('可用的 Skill（由注册表生成'))
+  assert.ok(prompt.includes('web.browse: 使用独立 Playwright 浏览器打开用户给定的公开网页'))
+  assert.ok(prompt.includes('stock.getHolding: 读取单只股票的本地持仓、成本、盈亏和备注'))
+  assert.ok(!prompt.includes('stock.getAnalysisContext:'))
+  assert.ok(!prompt.includes('portfolio.getAnalysisContext:'))
 })
 
 test('agent skill loader supports OpenClaw-style instruction skills', () => {
