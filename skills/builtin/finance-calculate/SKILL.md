@@ -1,23 +1,42 @@
 ---
-name: finance.calculate
+name: finance-calculate
 description: 执行受控的投资业务域计算，例如基于当前持仓和分红口径估算可分金额。
-version: 1
-scopes:
-  - stock.read
-  - trade.read
-inputs:
-  type: dividend.estimate
-  stockId: string
-  code: string?
-  symbol: string?
-  market: Market?
-  quantity: number?
-  cashPerShare: number?
-  dividendPer10Shares: number?
-dependencies:
-  - lib/finance.ts
-  - lib/money.ts
-script: lib/agent/skills/finance.ts#financeCalculateSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: finance.calculate
+    version: 1
+    handler: lib/agent/skills/finance.ts#financeCalculateSkill
+    scopes:
+      - stock.read
+      - trade.read
+    inputSchema:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - dividend.estimate
+        stockId:
+          type: string
+        code:
+          type: string
+        symbol:
+          type: string
+        market:
+          type: string
+        quantity:
+          type: number
+        cashPerShare:
+          type: number
+        dividendPer10Shares:
+          type: number
+      required:
+        - type
+      additionalProperties: false
+    dependencies:
+      - lib/finance.ts
+      - lib/money.ts
 ---
 
 # 使用场景

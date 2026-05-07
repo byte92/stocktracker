@@ -1,18 +1,33 @@
 ---
-name: web.fetch
+name: web-fetch
 description: 发起受控网络请求，抓取外部金融数据。仅限白名单域名。
-version: 1
-scopes:
-  - network.fetch
-inputs:
-  url: string
-  method: string?
-  headers: object?
-  body: string?
-  extractPrompt: string?
-dependencies:
-  - lib/agent/skills/web.ts
-script: lib/agent/skills/web.ts#webFetchSkill
+compatibility: Requires public internet access.
+metadata:
+  stocktracker:
+    kind: executable
+    action: web.fetch
+    version: 1
+    handler: lib/agent/skills/web.ts#webFetchSkill
+    scopes:
+      - network.fetch
+    inputSchema:
+      type: object
+      properties:
+        url:
+          type: string
+        method:
+          type: string
+        headers:
+          type: object
+        body:
+          type: string
+        extractPrompt:
+          type: string
+      required:
+        - url
+      additionalProperties: false
+    dependencies:
+      - lib/agent/skills/web.ts
 ---
 
 # 使用场景

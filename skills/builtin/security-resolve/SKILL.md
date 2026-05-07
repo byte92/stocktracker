@@ -1,18 +1,29 @@
 ---
-name: security.resolve
+name: security-resolve
 description: 基础证券实体解析，将股票/ETF/基金名称、代码、简称或自然语言提问解析为标准 code、name、market 和持仓状态。
-version: 1
-scopes:
-  - stock.read
-  - quote.read
-inputs:
-  query: string
-  limit: number
-dependencies:
-  - lib/agent/entity/securityResolver.ts
-  - lib/agent/entity/externalCandidates.ts
-  - lib/agent/entity/stockMatcher.ts
-script: lib/agent/skills/security.ts#securityResolveSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: security.resolve
+    version: 1
+    handler: lib/agent/skills/security.ts#securityResolveSkill
+    scopes:
+      - stock.read
+      - quote.read
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+        limit:
+          type: number
+      required:
+        - query
+      additionalProperties: false
+    dependencies:
+      - lib/agent/entity/securityResolver.ts
+      - lib/agent/entity/externalCandidates.ts
+      - lib/agent/entity/stockMatcher.ts
 ---
 
 # 使用场景

@@ -1,18 +1,26 @@
 ---
-name: portfolio.getAnalysisContext
+name: portfolio-get-analysis-context
 description: 为固定组合 AI 分析读取完整但受控的组合上下文。
-version: 1
-scopes:
-  - portfolio.read
-  - quote.read
-inputs:
-  baseCurrency: string
-dependencies:
-  - lib/finance.ts
-  - lib/ExchangeRateService.ts
-  - lib/StockPriceService.ts
-script: lib/agent/skills/analysis.ts#portfolioGetAnalysisContextSkill
-prompt: lib/agent/prompts/analysis.ts#PORTFOLIO_ANALYSIS_PROMPT
+metadata:
+  stocktracker:
+    kind: executable
+    action: portfolio.getAnalysisContext
+    version: 1
+    handler: lib/agent/skills/analysis.ts#portfolioGetAnalysisContextSkill
+    scopes:
+      - portfolio.read
+      - quote.read
+    inputSchema:
+      type: object
+      properties:
+        baseCurrency:
+          type: string
+      additionalProperties: false
+    dependencies:
+      - lib/finance.ts
+      - lib/ExchangeRateService.ts
+      - lib/StockPriceService.ts
+    prompt: lib/agent/prompts/analysis.ts#PORTFOLIO_ANALYSIS_PROMPT
 ---
 
 # 使用场景

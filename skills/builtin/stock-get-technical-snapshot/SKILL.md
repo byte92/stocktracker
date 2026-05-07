@@ -1,15 +1,33 @@
 ---
-name: stock.getTechnicalSnapshot
+name: stock-get-technical-snapshot
 description: 读取单只股票的技术指标摘要。
-version: 1
-scopes:
-  - quote.read
-inputs:
-  stockId: string
-dependencies:
-  - lib/technicalIndicators.ts
-  - lib/StockPriceService.ts
-script: lib/agent/skills/stock.ts#stockGetTechnicalSnapshotSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: stock.getTechnicalSnapshot
+    version: 1
+    handler: lib/agent/skills/stock.ts#stockGetTechnicalSnapshotSkill
+    scopes:
+      - quote.read
+    inputSchema:
+      type: object
+      properties:
+        stockId:
+          type: string
+        symbol:
+          type: string
+        market:
+          type: string
+        query:
+          type: string
+        keyword:
+          type: string
+        name:
+          type: string
+      additionalProperties: false
+    dependencies:
+      - lib/technicalIndicators.ts
+      - lib/StockPriceService.ts
 ---
 
 # 使用场景

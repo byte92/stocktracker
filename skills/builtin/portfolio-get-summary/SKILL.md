@@ -1,13 +1,17 @@
 ---
-name: portfolio.getSummary
+name: portfolio-get-summary
 description: 读取当前组合的轻量摘要，包括持仓数量、盈亏结构和交易概览。
-version: 1
-scopes:
-  - portfolio.read
-inputs: {}
-dependencies:
-  - lib/finance.ts
-script: lib/agent/skills/portfolio.ts#portfolioGetSummarySkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: portfolio.getSummary
+    version: 1
+    handler: lib/agent/skills/portfolio.ts#portfolioGetSummarySkill
+    scopes:
+      - portfolio.read
+    inputSchema: {}
+    dependencies:
+      - lib/finance.ts
 ---
 
 # 使用场景

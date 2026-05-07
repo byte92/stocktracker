@@ -1,18 +1,38 @@
 ---
-name: web.search
+name: web-search
 description: 通过 Playwright 模拟浏览器搜索最新财报、公告、新闻等公开信息，并抓取二级页面内容。
-version: 1
-scopes:
-  - network.fetch
-inputs:
-  query: string
-  queries: string[]?
-  sourceHints: string[]?
-  limit: number?
-  searchLimit: number?
-dependencies:
-  - playwright
-script: lib/agent/skills/search.ts#webSearchSkill
+compatibility: Requires Playwright browser runtime and public internet access.
+allowed-tools: Bash(pnpm:*) Bash(npx:*)
+metadata:
+  stocktracker:
+    kind: executable
+    action: web.search
+    version: 1
+    handler: lib/agent/skills/search.ts#webSearchSkill
+    scopes:
+      - network.fetch
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+        queries:
+          type: array
+          items:
+            type: string
+        sourceHints:
+          type: array
+          items:
+            type: string
+        limit:
+          type: number
+        searchLimit:
+          type: number
+      required:
+        - query
+      additionalProperties: false
+    dependencies:
+      - playwright
 ---
 
 # 使用场景

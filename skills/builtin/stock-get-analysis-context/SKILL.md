@@ -1,19 +1,29 @@
 ---
-name: stock.getAnalysisContext
+name: stock-get-analysis-context
 description: 为固定个股 AI 分析读取持仓、行情、技术指标和新闻上下文。
-version: 1
-scopes:
-  - stock.read
-  - trade.read
-  - quote.read
-inputs:
-  stockId: string
-dependencies:
-  - lib/finance.ts
-  - lib/StockPriceService.ts
-  - lib/technicalIndicators.ts
-script: lib/agent/skills/analysis.ts#stockGetAnalysisContextSkill
-prompt: lib/agent/prompts/analysis.ts#STOCK_ANALYSIS_PROMPT
+metadata:
+  stocktracker:
+    kind: executable
+    action: stock.getAnalysisContext
+    version: 1
+    handler: lib/agent/skills/analysis.ts#stockGetAnalysisContextSkill
+    scopes:
+      - stock.read
+      - trade.read
+      - quote.read
+    inputSchema:
+      type: object
+      properties:
+        stockId:
+          type: string
+      required:
+        - stockId
+      additionalProperties: false
+    dependencies:
+      - lib/finance.ts
+      - lib/StockPriceService.ts
+      - lib/technicalIndicators.ts
+    prompt: lib/agent/prompts/analysis.ts#STOCK_ANALYSIS_PROMPT
 ---
 
 # 使用场景

@@ -1,15 +1,25 @@
 ---
-name: stock.getHolding
+name: stock-get-holding
 description: 读取单只股票的本地持仓、成本、盈亏和备注。
-version: 1
-scopes:
-  - stock.read
-  - quote.read
-inputs:
-  stockId: string
-dependencies:
-  - lib/finance.ts
-script: lib/agent/skills/stock.ts#stockGetHoldingSkill
+metadata:
+  stocktracker:
+    kind: executable
+    action: stock.getHolding
+    version: 1
+    handler: lib/agent/skills/stock.ts#stockGetHoldingSkill
+    scopes:
+      - stock.read
+      - quote.read
+    inputSchema:
+      type: object
+      properties:
+        stockId:
+          type: string
+      required:
+        - stockId
+      additionalProperties: false
+    dependencies:
+      - lib/finance.ts
 ---
 
 # 使用场景
