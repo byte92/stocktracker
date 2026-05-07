@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: market.getAnalysisContext
     version: 1
-    handler: lib/agent/skills/market.ts#marketGetAnalysisContextSkill
+    handler: ./handler.ts#marketGetAnalysisContextSkill
     scopes:
       - market.read
       - quote.read

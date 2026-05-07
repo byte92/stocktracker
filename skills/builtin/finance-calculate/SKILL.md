@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: finance.calculate
     version: 1
-    handler: lib/agent/skills/finance.ts#financeCalculateSkill
+    handler: ./handler.ts#financeCalculateSkill
     scopes:
       - stock.read
       - trade.read

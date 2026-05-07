@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: stock.getQuote
     version: 1
-    handler: lib/agent/skills/stock.ts#stockGetQuoteSkill
+    handler: ./handler.ts#stockGetQuoteSkill
     scopes:
       - quote.read
     inputSchema:

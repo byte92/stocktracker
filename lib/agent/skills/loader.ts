@@ -78,6 +78,22 @@ function parseFrontmatter(raw: string) {
   return asRecord(parseYaml(raw))
 }
 
+function resolveSkillReference(filePath: string, reference: string | undefined) {
+  if (!reference) return undefined
+  if (!reference.startsWith('.')) return reference
+
+  const [targetPath, exportName] = reference.split('#')
+  const resolvedPath = path.relative(
+    /*turbopackIgnore: true*/ process.cwd(),
+    path.resolve(path.dirname(filePath), targetPath),
+  )
+  return [resolvedPath, exportName].filter(Boolean).join('#')
+}
+
+function resolveSkillReferences(filePath: string, references: string[]) {
+  return references.map((reference) => resolveSkillReference(filePath, reference) ?? reference)
+}
+
 function getStockTrackerMetadata(metadata: Record<string, unknown>): StockTrackerSkillMetadata | undefined {
   const raw = asRecord(metadata.stocktracker)
   if (!Object.keys(raw).length) return undefined
@@ -169,12 +185,13 @@ export function parseSkillMarkdown(filePath: string, options: ParseSkillOptions 
   const inputs = asRecord(frontmatter.inputs)
   const inputSchema = stocktracker?.inputSchema ?? pickSchema(frontmatter.inputSchema, frontmatter.input_schema, inputs)
   const outputSchema = stocktracker?.outputSchema ?? pickSchema(frontmatter.outputSchema, frontmatter.output_schema)
-  const handler = stocktracker?.handler
+  const rawHandler = stocktracker?.handler
     ?? (typeof frontmatter.handler === 'string' ? frontmatter.handler : undefined)
     ?? (typeof frontmatter.script === 'string' ? frontmatter.script : undefined)
-  const script = typeof frontmatter.script === 'string' ? frontmatter.script : handler
-  const prompt = stocktracker?.prompt ?? (typeof frontmatter.prompt === 'string' ? frontmatter.prompt : undefined)
-  const dependencies = stocktracker?.dependencies ?? asStringArray(frontmatter.dependencies)
+  const handler = resolveSkillReference(filePath, rawHandler)
+  const script = resolveSkillReference(filePath, typeof frontmatter.script === 'string' ? frontmatter.script : rawHandler)
+  const prompt = resolveSkillReference(filePath, stocktracker?.prompt ?? (typeof frontmatter.prompt === 'string' ? frontmatter.prompt : undefined))
+  const dependencies = resolveSkillReferences(filePath, stocktracker?.dependencies ?? asStringArray(frontmatter.dependencies))
   const scopes = stocktracker?.scopes ?? asAgentScopes(frontmatter.scopes)
   const explicitKind = stocktracker?.kind
     ?? (frontmatter.kind === 'executable' || frontmatter.kind === 'instruction' ? frontmatter.kind : undefined)

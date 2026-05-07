@@ -8,7 +8,7 @@ metadata:
     kind: executable
     action: web.browse
     version: 1
-    handler: lib/agent/skills/browser.ts#webBrowseSkill
+    handler: ./handler.ts#webBrowseSkill
     scopes:
       - network.fetch
     inputSchema:

@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: portfolio.getTopPositions
     version: 1
-    handler: lib/agent/skills/portfolio.ts#portfolioGetTopPositionsSkill
+    handler: ./handler.ts#portfolioGetTopPositionsSkill
     scopes:
       - portfolio.read
     inputSchema:

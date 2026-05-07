@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: security.resolve
     version: 1
-    handler: lib/agent/skills/security.ts#securityResolveSkill
+    handler: ./handler.ts#securityResolveSkill
     scopes:
       - stock.read
       - quote.read

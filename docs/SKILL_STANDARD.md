@@ -67,7 +67,7 @@ metadata:
     kind: executable
     action: stock.getHolding
     version: 2
-    handler: lib/agent/skills/stock.ts#stockGetHoldingSkill
+    handler: ./handler.ts#stockGetHoldingSkill
     scopes:
       - stock.read
       - quote.read
@@ -127,6 +127,26 @@ StockTracker Runtime 同时支持两个名称：
 - `metadata.stocktracker.action`: 内部执行 action，例如 `stock.getHolding`。
 
 Planner 可以从标准 Skill ID 生成提示词；Executor 仍可以通过标准 ID 或内部 action 找到同一个执行器。这样既兼容旧计划，也让 `SKILL.md` 本身符合 agentskills.io 规范。
+
+## Package Layout
+
+内置 Skill 使用包内共址结构：
+
+```text
+skills/builtin/stock-get-holding/
+  SKILL.md
+  handler.ts
+```
+
+`metadata.stocktracker.handler` 推荐使用相对路径：
+
+```yaml
+metadata:
+  stocktracker:
+    handler: ./handler.ts#stockGetHoldingSkill
+```
+
+Loader 会按 `SKILL.md` 所在目录解析相对路径。旧的 `lib/agent/skills/*` 入口目前保留为兼容导出层，避免历史测试、文档或内部 import 立刻失效。
 
 ## Loading Policy
 

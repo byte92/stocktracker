@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: stock.getAnalysisContext
     version: 1
-    handler: lib/agent/skills/analysis.ts#stockGetAnalysisContextSkill
+    handler: ./handler.ts#stockGetAnalysisContextSkill
     scopes:
       - stock.read
       - trade.read

@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: stock.getHolding
     version: 1
-    handler: lib/agent/skills/stock.ts#stockGetHoldingSkill
+    handler: ./handler.ts#stockGetHoldingSkill
     scopes:
       - stock.read
       - quote.read

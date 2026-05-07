@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: stock.getFinancials
     version: 1
-    handler: lib/agent/skills/stock.ts#stockGetFinancialsSkill
+    handler: ./handler.ts#stockGetFinancialsSkill
     scopes:
       - quote.read
       - network.fetch

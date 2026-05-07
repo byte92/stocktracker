@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: portfolio.getSummary
     version: 1
-    handler: lib/agent/skills/portfolio.ts#portfolioGetSummarySkill
+    handler: ./handler.ts#portfolioGetSummarySkill
     scopes:
       - portfolio.read
     inputSchema: {}

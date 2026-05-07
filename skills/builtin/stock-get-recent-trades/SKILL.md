@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: stock.getRecentTrades
     version: 1
-    handler: lib/agent/skills/stock.ts#stockGetRecentTradesSkill
+    handler: ./handler.ts#stockGetRecentTradesSkill
     scopes:
       - trade.read
     inputSchema:

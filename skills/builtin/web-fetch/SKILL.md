@@ -7,7 +7,7 @@ metadata:
     kind: executable
     action: web.fetch
     version: 1
-    handler: lib/agent/skills/web.ts#webFetchSkill
+    handler: ./handler.ts#webFetchSkill
     scopes:
       - network.fetch
     inputSchema:

@@ -8,7 +8,7 @@ metadata:
     kind: executable
     action: web.search
     version: 1
-    handler: lib/agent/skills/search.ts#webSearchSkill
+    handler: ./handler.ts#webSearchSkill
     scopes:
       - network.fetch
     inputSchema:

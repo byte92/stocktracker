@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: portfolio.getAnalysisContext
     version: 1
-    handler: lib/agent/skills/analysis.ts#portfolioGetAnalysisContextSkill
+    handler: ./handler.ts#portfolioGetAnalysisContextSkill
     scopes:
       - portfolio.read
       - quote.read

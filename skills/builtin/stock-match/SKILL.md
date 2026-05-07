@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: stock.match
     version: 1
-    handler: lib/agent/skills/stock.ts#stockMatchSkill
+    handler: ./handler.ts#stockMatchSkill
     scopes:
       - stock.read
     inputSchema:

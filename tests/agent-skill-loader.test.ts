@@ -35,6 +35,7 @@ test('agent skill loader reads builtin markdown manifests', () => {
   const holding = manifests.find((manifest) => manifest.name === 'stock-get-holding')
   assert.ok(holding)
   assert.equal(holding.actionName, 'stock.getHolding')
+  assert.equal(holding.handler, 'skills/builtin/stock-get-holding/handler.ts#stockGetHoldingSkill')
   assert.equal((holding.inputSchema.properties as any).stockId.type, 'string')
   assert.deepEqual(holding.scopes, ['stock.read', 'quote.read'])
   assert.ok(holding.documentation.includes('使用场景'))
@@ -181,6 +182,38 @@ test('agent skill loader supports stocktracker executable metadata extension', (
   assert.deepEqual(manifests[0].scopes, ['stock.read', 'quote.read'])
   assert.equal(manifests[0].inputSchema.type, 'object')
   assert.deepEqual(manifests[0].inputSchema.required, ['stockId'])
+})
+
+test('agent skill loader resolves relative handler paths from skill package directory', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stocktracker-relative-handler-'))
+  const skillDir = path.join(root, 'stock-get-holding')
+  fs.mkdirSync(skillDir)
+  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), [
+    '---',
+    'name: stock-get-holding',
+    'description: 使用相对 handler 路径声明可执行 Skill。',
+    'metadata:',
+    '  stocktracker:',
+    '    kind: executable',
+    '    action: stock.getHolding',
+    '    handler: ./handler.ts#stockGetHoldingSkill',
+    '    scopes:',
+    '      - stock.read',
+    '    inputSchema:',
+    '      type: object',
+    '      properties:',
+    '        stockId:',
+    '          type: string',
+    '---',
+    '',
+    '# 使用场景',
+    '',
+    '用于测试 Skill 包内相对 handler。',
+  ].join('\n'))
+
+  const manifests = loadConfiguredSkillManifests([root])
+  assert.equal(manifests.length, 1)
+  assert.equal(manifests[0].handler, path.relative(process.cwd(), path.join(skillDir, 'handler.ts')) + '#stockGetHoldingSkill')
 })
 
 test('agent skill loader reads external skill manifest roots', () => {

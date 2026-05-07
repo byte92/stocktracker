@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: stock.getTechnicalSnapshot
     version: 1
-    handler: lib/agent/skills/stock.ts#stockGetTechnicalSnapshotSkill
+    handler: ./handler.ts#stockGetTechnicalSnapshotSkill
     scopes:
       - quote.read
     inputSchema:

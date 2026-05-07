@@ -6,7 +6,7 @@ metadata:
     kind: executable
     action: market.resolveCandidate
     version: 1
-    handler: lib/agent/skills/market.ts#marketResolveCandidateSkill
+    handler: ./handler.ts#marketResolveCandidateSkill
     scopes:
       - quote.read
     inputSchema:
