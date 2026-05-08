@@ -192,19 +192,6 @@ async function normalizeLlmPlan(plan: AgentPlan, userMessage: string, stocks: St
   if (!query) return normalizedPlan
 
   const candidates = await resolveSecurityCandidates(query, stocks, 3)
-  const externalTargets = candidates.filter((candidate) => !candidate.inPortfolio)
-  if (externalTargets.length) {
-    return {
-      intent: 'stock_analysis',
-      entities: externalTargets.map((candidate) => ({ type: 'stock', raw: candidate.name, code: candidate.code, name: candidate.name, market: candidate.market, confidence: candidate.confidence })),
-      requiredSkills: dedupeSkillCalls([
-        ...externalTargets.flatMap((candidate) => buildModelExternalStockSkillCalls(candidate, normalizedPlan, userMessage)),
-        ...passthroughModelContextCalls(normalizedPlan),
-      ]),
-      responseMode: 'answer',
-    }
-  }
-
   const local = candidates.find((candidate) => candidate.inPortfolio && candidate.stockId)
   const stock = local ? stocks.find((item) => item.id === local.stockId) : null
   if (local && stock) {
@@ -213,6 +200,19 @@ async function normalizeLlmPlan(plan: AgentPlan, userMessage: string, stocks: St
       entities: [{ type: 'stock', raw: query, stockId: stock.id, code: stock.code, name: stock.name, market: stock.market, confidence: local.confidence }],
       requiredSkills: dedupeSkillCalls([
         ...buildModelStockSkillCalls(stock, normalizedPlan, userMessage),
+        ...passthroughModelContextCalls(normalizedPlan),
+      ]),
+      responseMode: 'answer',
+    }
+  }
+
+  const externalTargets = candidates.filter((candidate) => !candidate.inPortfolio)
+  if (externalTargets.length) {
+    return {
+      intent: 'stock_analysis',
+      entities: externalTargets.map((candidate) => ({ type: 'stock', raw: candidate.name, code: candidate.code, name: candidate.name, market: candidate.market, confidence: candidate.confidence })),
+      requiredSkills: dedupeSkillCalls([
+        ...externalTargets.flatMap((candidate) => buildModelExternalStockSkillCalls(candidate, normalizedPlan, userMessage)),
         ...passthroughModelContextCalls(normalizedPlan),
       ]),
       responseMode: 'answer',
@@ -553,8 +553,27 @@ export async function planAgentResponse({
     }
   }
 
-  const resolvedExternalTargets = (await resolveSecurityCandidates(content, stocks, 3))
-    .filter((candidate) => !candidate.inPortfolio)
+  const resolvedCandidates = await resolveSecurityCandidates(content, stocks, 3)
+  const resolvedLocal = resolvedCandidates.find((candidate) => candidate.inPortfolio && candidate.stockId)
+  const resolvedStock = resolvedLocal ? stocks.find((item) => item.id === resolvedLocal.stockId) : null
+  if (resolvedLocal && resolvedStock) {
+    return {
+      intent: includesAny(content, TRADE_KEYWORDS) ? 'trade_review' : 'stock_analysis',
+      entities: [{
+        type: 'stock',
+        raw: content,
+        stockId: resolvedStock.id,
+        code: resolvedStock.code,
+        name: resolvedStock.name,
+        market: resolvedStock.market,
+        confidence: resolvedLocal.confidence,
+      }],
+      requiredSkills: buildStockSkillCalls(resolvedStock, content),
+      responseMode: 'answer',
+    }
+  }
+
+  const resolvedExternalTargets = resolvedCandidates.filter((candidate) => !candidate.inPortfolio)
   if (resolvedExternalTargets.length) {
     return {
       intent: 'stock_analysis',

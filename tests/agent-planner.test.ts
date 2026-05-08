@@ -375,6 +375,76 @@ test('agent planner fetches external ETF data for broad 科创50 ETF questions',
   assert.deepEqual(technicalSnapshots.map((item) => item.args.symbol), ['588000', '588080'])
 })
 
+test('agent planner prefers a held broad ETF candidate over external variants in fallback planning', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response('v_hint="sh~510300~\\u6caa\\u6df1300ETF\\u534e\\u6cf0\\u67cf\\u745e~hs300etfhfbr~ETF^sh~510310~\\u6caa\\u6df1300ETF\\u6613\\u65b9\\u8fbe~hs300etfyfd~ETF^sz~159919~\\u6caa\\u6df1300ETF\\u5609\\u5b9e~hs300ETFjs~ETF"')
+
+  try {
+    const plan = await planAgentResponse({
+      userMessage: '看一下，我现在卖出沪深 300 的 1/2，你觉得有问题吗？',
+      stocks,
+      aiConfig: { ...mockAiConfig, enabled: false },
+    })
+
+    assert.equal(plan.intent, 'trade_review')
+    assert.equal(plan.responseMode, 'answer')
+    assert.equal(plan.entities[0]?.stockId, 'stock-2')
+    assert.deepEqual(plan.requiredSkills.map((item) => item.name), [
+      'stock.getHolding',
+      'stock.getRecentTrades',
+      'stock.getQuote',
+      'stock.getTechnicalSnapshot',
+    ])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('agent planner prefers a held broad ETF candidate after model-directed security resolution', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (input) => {
+    if (String(input).includes('/chat/completions')) {
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              intent: 'stock_analysis',
+              entities: [{ type: 'stock', raw: '沪深300', confidence: 0.72 }],
+              requiredSkills: [{
+                name: 'security.resolve',
+                args: { query: '沪深300' },
+                reason: '用户使用指数简称，需要解析具体 ETF',
+              }],
+              responseMode: 'answer',
+            }),
+          },
+        }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    return new Response('v_hint="sh~510300~\\u6caa\\u6df1300ETF\\u534e\\u6cf0\\u67cf\\u745e~hs300etfhfbr~ETF^sh~510310~\\u6caa\\u6df1300ETF\\u6613\\u65b9\\u8fbe~hs300etfyfd~ETF^sz~159919~\\u6caa\\u6df1300ETF\\u5609\\u5b9e~hs300ETFjs~ETF"')
+  }
+
+  try {
+    const plan = await planAgentResponse({
+      userMessage: '看一下，我现在卖出沪深 300 的 1/2，你觉得有问题吗？',
+      stocks,
+      aiConfig: mockAiConfig,
+    })
+
+    assert.equal(plan.intent, 'trade_review')
+    assert.equal(plan.responseMode, 'answer')
+    assert.equal(plan.entities[0]?.stockId, 'stock-2')
+    assert.deepEqual(plan.requiredSkills.map((item) => item.name), [
+      'stock.getHolding',
+      'stock.getRecentTrades',
+      'stock.getQuote',
+      'stock.getTechnicalSnapshot',
+    ])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('agent planner fetches external quote for explicit non-holding A-share ETF code', async () => {
   const plan = await planAgentResponse({
     userMessage: '588000 还有上涨空间吗',
