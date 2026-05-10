@@ -287,6 +287,8 @@ function StockListRow({
     ? t('正在确认交易日')
     : dailyPnl?.state === 'market-closed'
       ? t('今日休市')
+      : dailyPnl?.state === 'market-not-open'
+        ? t('今日未开盘')
       : dailyPnl?.state === 'stale-quote'
         ? t('暂无今日行情')
         : t('暂无当日行情')

@@ -1,6 +1,7 @@
 import { exchangeRateService, MARKET_CURRENCY, type Currency } from '@/lib/ExchangeRateService'
 import { calcStockSummary } from '@/lib/finance'
 import { stockPriceService } from '@/lib/StockPriceService'
+import { getDailyQuotePnl } from '@/lib/quoteDailyPnl'
 import { buildTechnicalIndicatorSnapshot } from '@/lib/technicalIndicators'
 import { fetchDailyCandles } from '@/lib/external/kline'
 import { fetchStockNews } from '@/lib/external/news'
@@ -73,8 +74,11 @@ async function buildPortfolioAnalysisContext(stocks: Stock[], baseCurrency: Curr
     const summary = calcStockSummary(stock, quote?.price)
     const lastTrade = [...stock.trades].sort((left, right) => right.date.localeCompare(left.date))[0] ?? null
     const currentCost = convertPortfolioMoney(summary.avgCostPrice * summary.currentHolding, stock.market, rates, baseCurrency)
-    const dailyPnl = quote && summary.currentHolding > 0
-      ? convertPortfolioMoney(summary.currentHolding * quote.change, stock.market, rates, baseCurrency)
+    const dailyQuotePnl = quote && summary.currentHolding > 0
+      ? getDailyQuotePnl(summary.currentHolding, quote, stock.market)
+      : null
+    const dailyPnl = dailyQuotePnl?.state === 'active'
+      ? convertPortfolioMoney(dailyQuotePnl.amount, stock.market, rates, baseCurrency)
       : null
     return {
       id: stock.id,

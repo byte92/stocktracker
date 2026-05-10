@@ -27,6 +27,7 @@ type TodayPnlSnapshot = {
   quoted: number
   activeDaily: number
   closed: number
+  notOpen: number
   stale: number
 }
 
@@ -50,6 +51,7 @@ export default function PortfolioSummarySection() {
     quoted: 0,
     activeDaily: 0,
     closed: 0,
+    notOpen: 0,
     stale: 0,
   })
   const [todayPnlLoading, setTodayPnlLoading] = useState(false)
@@ -102,7 +104,7 @@ export default function PortfolioSummarySection() {
         .filter(({ summary }) => summary.currentHolding > 0)
 
       if (activeHoldings.length === 0) {
-        setTodayPnl({ amount: 0, rate: 0, marketValue: 0, costBasis: 0, unrealizedPnl: 0, unrealizedPnlPercent: 0, gainers: 0, losers: 0, flat: 0, quoted: 0, activeDaily: 0, closed: 0, stale: 0 })
+        setTodayPnl({ amount: 0, rate: 0, marketValue: 0, costBasis: 0, unrealizedPnl: 0, unrealizedPnlPercent: 0, gainers: 0, losers: 0, flat: 0, quoted: 0, activeDaily: 0, closed: 0, notOpen: 0, stale: 0 })
         return
       }
 
@@ -164,6 +166,8 @@ export default function PortfolioSummarySection() {
               }
             } else if (item.dailyState === 'market-closed') {
               acc.closed += 1
+            } else if (item.dailyState === 'market-not-open') {
+              acc.notOpen += 1
             } else if (item.dailyState === 'stale-quote') {
               acc.stale += 1
             }
@@ -172,7 +176,7 @@ export default function PortfolioSummarySection() {
             acc.quoted += 1
             return acc
           },
-          { amount: 0, rateBase: 0, marketValue: 0, costBasis: 0, gainers: 0, losers: 0, flat: 0, quoted: 0, activeDaily: 0, closed: 0, stale: 0 },
+          { amount: 0, rateBase: 0, marketValue: 0, costBasis: 0, gainers: 0, losers: 0, flat: 0, quoted: 0, activeDaily: 0, closed: 0, notOpen: 0, stale: 0 },
         )
         const unrealizedPnl = snapshot.marketValue - snapshot.costBasis
 
@@ -189,12 +193,13 @@ export default function PortfolioSummarySection() {
           quoted: snapshot.quoted,
           activeDaily: snapshot.activeDaily,
           closed: snapshot.closed,
+          notOpen: snapshot.notOpen,
           stale: snapshot.stale,
         })
       } catch (error) {
         console.error('Failed to load portfolio daily pnl:', error)
         if (!cancelled) {
-          setTodayPnl({ amount: 0, rate: 0, marketValue: 0, costBasis: 0, unrealizedPnl: 0, unrealizedPnlPercent: 0, gainers: 0, losers: 0, flat: 0, quoted: 0, activeDaily: 0, closed: 0, stale: 0 })
+          setTodayPnl({ amount: 0, rate: 0, marketValue: 0, costBasis: 0, unrealizedPnl: 0, unrealizedPnlPercent: 0, gainers: 0, losers: 0, flat: 0, quoted: 0, activeDaily: 0, closed: 0, notOpen: 0, stale: 0 })
         }
       } finally {
         if (!cancelled) {
@@ -216,6 +221,7 @@ export default function PortfolioSummarySection() {
       const base = t('{gainers} 个上涨 · {losers} 个下跌', { gainers: todayPnl.gainers, losers: todayPnl.losers })
       return todayPnl.flat > 0 ? `${base} · ${t('{count} 个平盘', { count: todayPnl.flat })}` : base
     }
+    if (todayPnl.quoted > 0 && todayPnl.notOpen > 0) return t('今日未开盘 · 最近行情不计入今日盈亏')
     if (todayPnl.quoted > 0 && todayPnl.closed > 0) return t('今日休市 · 最近行情不计入今日盈亏')
     if (todayPnl.quoted > 0 && todayPnl.stale > 0) return t('暂无今日行情 · 最近行情不计入今日盈亏')
     return t('暂无可用行情')

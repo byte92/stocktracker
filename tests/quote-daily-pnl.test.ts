@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getDailyQuotePnl, getMarketDate, isMarketHoliday, isMarketTradingDay, type MarketHolidayCalendar } from '@/lib/quoteDailyPnl'
+import { getDailyQuotePnl, getMarketDate, hasMarketOpened, isMarketHoliday, isMarketTradingDay, type MarketHolidayCalendar } from '@/lib/quoteDailyPnl'
 import type { StockQuote } from '@/types/stockApi'
 
 const chinaHolidayCalendar2026: MarketHolidayCalendar = {
@@ -53,6 +53,26 @@ test('getDailyQuotePnl uses same-day market quotes', () => {
   assert.equal(Number(result.rate?.toFixed(2)), 5.26)
 })
 
+test('getDailyQuotePnl ignores same-day A-share quotes before market open', () => {
+  const beforeOpen = new Date('2026-05-06T09:20:00+08:00')
+  const result = getDailyQuotePnl(100, quote({ timestamp: '2026-05-06T09:20:00+08:00' }), 'A', beforeOpen)
+
+  assert.equal(isMarketTradingDay('A', beforeOpen), true)
+  assert.equal(hasMarketOpened('A', beforeOpen), false)
+  assert.equal(result.state, 'market-not-open')
+  assert.equal(result.amount, 0)
+  assert.equal(result.rate, 0)
+})
+
+test('getDailyQuotePnl starts A-share daily pnl at market open', () => {
+  const openTime = new Date('2026-05-06T09:30:00+08:00')
+  const result = getDailyQuotePnl(100, quote({ timestamp: '2026-05-06T09:30:00+08:00' }), 'A', openTime)
+
+  assert.equal(hasMarketOpened('A', openTime), true)
+  assert.equal(result.state, 'active')
+  assert.equal(result.amount, 50)
+})
+
 test('A shares are closed during the 2026 Labor Day holiday', () => {
   const laborDayHoliday = new Date('2026-05-04T10:00:00+08:00')
   const result = getDailyQuotePnl(100, quote({ timestamp: '2026-05-04T09:45:00+08:00' }), 'A', laborDayHoliday, chinaHolidayCalendar2026)
@@ -70,6 +90,16 @@ test('US trading day remains open on 2026-05-04 New York time', () => {
 
   assert.equal(getMarketDate(mondayNewYorkMarketHours, 'US'), '2026-05-04')
   assert.equal(isMarketTradingDay('US', mondayNewYorkMarketHours), true)
+})
+
+test('US market daily pnl waits for New York open time', () => {
+  const beforeOpenNewYork = new Date('2026-05-04T21:20:00+08:00')
+  const openNewYork = new Date('2026-05-04T21:30:00+08:00')
+
+  assert.equal(getMarketDate(beforeOpenNewYork, 'US'), '2026-05-04')
+  assert.equal(isMarketTradingDay('US', beforeOpenNewYork), true)
+  assert.equal(hasMarketOpened('US', beforeOpenNewYork), false)
+  assert.equal(hasMarketOpened('US', openNewYork), true)
 })
 
 test('US market is closed on Sunday Beijing time', () => {
