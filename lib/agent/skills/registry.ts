@@ -8,6 +8,7 @@ import { webBrowseSkill } from '@/lib/agent/skills/browser'
 import { webSearchSkill } from '@/lib/agent/skills/search'
 import { webFetchSkill } from '@/lib/agent/skills/web'
 import { portfolioGetSummarySkill, portfolioGetTopPositionsSkill } from '@/lib/agent/skills/portfolio'
+import { tradeCommitRecordSkill, tradePrepareRecordSkill } from '@/lib/agent/skills/tradeRecord'
 import {
   stockGetExternalQuoteSkill,
   stockGetHoldingSkill,
@@ -37,6 +38,8 @@ const BUILTIN_SKILLS: AgentSkill<any, any>[] = [
   stockGetExternalQuoteSkill,
   stockGetTechnicalSnapshotSkill,
   stockGetFinancialsSkill,
+  tradePrepareRecordSkill,
+  tradeCommitRecordSkill,
 ]
 
 const MANIFESTS = [

@@ -22,7 +22,7 @@ function restoreGlobalCrypto(descriptor: PropertyDescriptor | undefined) {
   if (descriptor) {
     Object.defineProperty(globalThis, 'crypto', descriptor)
   } else {
-    delete (globalThis as typeof globalThis & { crypto?: Crypto }).crypto
+    Reflect.deleteProperty(globalThis, 'crypto')
   }
 }
 

@@ -19,6 +19,7 @@ import { buildFallbackSearchQuery, normalizeWebSkillCalls } from '@/lib/agent/pl
 
 const PORTFOLIO_KEYWORDS = ['组合', '仓位', '持仓', '风险', '亏损', '盈利', '收益', '回撤', '集中', '配置', '哪只', '哪些']
 const TRADE_KEYWORDS = ['交易', '复盘', '买入', '卖出', '分红', '派息', '成本', '加仓', '减仓']
+const TRADE_RECORD_ACTION_KEYWORDS = ['买入', '买进', '购入', '加仓', '卖出', '卖掉', '减仓', '清仓', '分红', '派息', '股息']
 const OUT_OF_SCOPE_KEYWORDS = ['天气', '菜谱', '写代码', '编程', '电影', '小说', '医疗', '法律', '旅游', '翻译']
 
 const EXPLICIT_PORTFOLIO_KEYWORDS = ['组合', '全部', '整体', '所有', '每只', '哪些', '哪只', '仓位', '配置']
@@ -362,6 +363,14 @@ function shouldUseRecentExternalTargets(content: string) {
     && !includesAny(content, EXPLICIT_PORTFOLIO_KEYWORDS)
 }
 
+function looksLikeTradeRecordRequest(content: string) {
+  if (!includesAny(content, TRADE_RECORD_ACTION_KEYWORDS)) return false
+  if (/(怎么看|怎么样|建议|适合|能不能|可不可以|要不要|是否|应该|复盘|分析)/.test(content)) return false
+  const hasQuantity = /\d+(?:,\d{3})*(?:\.\d+)?\s*(?:股|份|枚|手|shares?|coins?)/i.test(content)
+  const hasMoney = /\d+(?:,\d{3})*(?:\.\d+)?\s*(?:元|块|港币|美元|USDT|usd|hkd|cny)/i.test(content)
+  return hasQuantity || (/(分红|派息|股息)/.test(content) && hasMoney)
+}
+
 export async function planAgentResponse({
   userMessage,
   stocks,
@@ -384,6 +393,21 @@ export async function planAgentResponse({
     ...resolvedSecurities,
     ...externalStocks.map((item) => ({ symbol: item.symbol, market: item.market, inPortfolio: false })),
   ]
+
+  if (looksLikeTradeRecordRequest(content)) {
+    return {
+      intent: 'trade_record',
+      entities: [],
+      requiredSkills: [
+        {
+          name: 'trade.prepareRecord',
+          args: { text: content },
+          reason: '用户正在用自然语言录入买入、卖出或分红，需要先整理待确认草稿。',
+        },
+      ],
+      responseMode: 'answer',
+    }
+  }
 
   if (selectedSecurities.length) {
     const localTargets: Stock[] = []
