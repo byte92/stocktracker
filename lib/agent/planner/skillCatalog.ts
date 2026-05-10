@@ -15,6 +15,8 @@ const PLANNER_NORMALIZED_SKILLS = new Set([
   'stock.getTechnicalSnapshot',
   'stock.getFinancials',
   'finance.calculate',
+  'trade.prepareRecord',
+  'trade.commitRecord',
 ])
 
 function isPlannerVisibleSkill(skill: AgentSkill) {

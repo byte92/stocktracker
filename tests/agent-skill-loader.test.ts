@@ -27,6 +27,8 @@ test('agent skill loader reads builtin markdown manifests', () => {
     'stock-get-recent-trades',
     'stock-get-technical-snapshot',
     'stock-match',
+    'trade-commit-record',
+    'trade-prepare-record',
     'web-browse',
     'web-fetch',
     'web-search',

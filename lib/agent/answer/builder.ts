@@ -120,6 +120,7 @@ function toWebBrowseSource(data: Record<string, unknown>) {
 function inferAnswerType(plan: AgentPlan): AgentAnswerDraft['answerType'] {
   if (plan.responseMode === 'refuse') return 'refusal'
   if (plan.responseMode === 'clarify') return 'clarify'
+  if (plan.intent === 'trade_record') return 'trade_review'
   if (plan.intent === 'trade_review') return 'trade_review'
   if (plan.intent === 'portfolio_risk' || plan.intent === 'portfolio_summary') return 'portfolio_review'
   if (plan.intent === 'market_question') return 'market_review'
@@ -274,6 +275,21 @@ export function buildAgentAnswerDraft(plan: AgentPlan, skillResults: AgentSkillR
       grossCashPerShare: data.grossCashPerShare,
       netCashPerShare: data.netCashPerShare,
     }, 'finance.calculate', '回答时需要说明税前/实际到账口径，以及是否假设本次分红与历史记录相同。')
+  }
+
+  const tradeDraftData = getData(findResult(skillResults, 'trade.prepareRecord'))
+  if (tradeDraftData) {
+    addItem(facts, '录入状态', tradeDraftData.status, 'trade.prepareRecord')
+    addItem(facts, '待确认草稿', tradeDraftData.draft, 'trade.prepareRecord', '确认前不得写入数据库；需要请用户核对并明确确认。')
+    addItem(missingData, '待补充字段', tradeDraftData.missing, 'trade.prepareRecord')
+    addItem(recommendations, '确认流程', '先把草稿字段返回给用户核对；只有用户明确确认无误后，系统才能录入数据库。', 'trade.prepareRecord')
+  }
+
+  const tradeCommitData = getData(findResult(skillResults, 'trade.commitRecord'))
+  if (tradeCommitData) {
+    addItem(facts, '录入结果', tradeCommitData.status, 'trade.commitRecord')
+    addItem(facts, '写入标的', tradeCommitData.stock, 'trade.commitRecord')
+    addItem(facts, '写入记录', tradeCommitData.trade, 'trade.commitRecord')
   }
 
   for (const result of findResults(skillResults, 'web.search')) {

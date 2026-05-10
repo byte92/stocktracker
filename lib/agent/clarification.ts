@@ -114,37 +114,6 @@ function findCandidate(candidates: AgentClarificationCandidate[], code: unknown,
   }) ?? null
 }
 
-function deterministicSelection(userMessage: string, candidates: AgentClarificationCandidate[]) {
-  const answer = userMessage.trim()
-  const upperAnswer = answer.toUpperCase()
-
-  const exact = candidates.filter((candidate) => {
-    return upperAnswer === candidate.code.toUpperCase()
-      || answer === candidate.name
-      || upperAnswer === `${candidate.code}.${candidate.market}`.toUpperCase()
-  })
-  if (exact.length === 1) return exact[0]
-
-  const ordinalMap: Array<[RegExp, number]> = [
-    [/(第一个|第一只|第1个|第1只|\b1\b)/, 0],
-    [/(第二个|第二只|第2个|第2只|\b2\b)/, 1],
-    [/(第三个|第三只|第3个|第3只|\b3\b)/, 2],
-  ]
-  for (const [pattern, index] of ordinalMap) {
-    if (pattern.test(answer) && candidates[index]) return candidates[index]
-  }
-
-  const marketOnly = candidates.filter((candidate) => {
-    if (candidate.market === 'A') return /(A股|A 股|沪深|上交所|深交所)/i.test(answer)
-    if (candidate.market === 'HK') return /(港股|香港|港交所|\bHK\b)/i.test(answer)
-    if (candidate.market === 'US') return /(美股|美国|纳斯达克|纽交所|\bUS\b|NYSE|NASDAQ)/i.test(answer)
-    if (candidate.market === 'FUND') return /(基金|ETF)/i.test(answer)
-    if (candidate.market === 'CRYPTO') return /(加密|虚拟货币|数字货币|crypto|币)/i.test(answer)
-    return false
-  })
-  return marketOnly.length === 1 ? marketOnly[0] : null
-}
-
 async function resolveViaLlm({
   userMessage,
   pending,
@@ -154,7 +123,9 @@ async function resolveViaLlm({
   pending: AgentClarificationState
   aiConfig: AiConfig
 }): Promise<AgentClarificationResolution | null> {
-  if (!aiConfig.enabled || !aiConfig.baseUrl || !aiConfig.model) return null
+  if (!aiConfig.enabled || !aiConfig.baseUrl || !aiConfig.model || !aiConfig.apiKey) {
+    throw new Error('AI 模型未配置，无法判断用户选择的候选标的。')
+  }
 
   const systemPrompt = [
     '你是 StockTracker 的对话澄清解析器，只负责判断用户的新回复是否选择了候选标的。',
@@ -223,17 +194,7 @@ export async function resolveClarificationSelection({
   pending: AgentClarificationState
   aiConfig: AiConfig
 }): Promise<AgentClarificationResolution> {
-  const llmResult = await resolveViaLlm({ userMessage, pending, aiConfig }).catch(() => null)
+  const llmResult = await resolveViaLlm({ userMessage, pending, aiConfig })
   if (llmResult) return llmResult
-
-  const selected = deterministicSelection(userMessage, pending.candidates)
-  if (selected) {
-    return { status: 'selected', candidate: selected, confidence: 0.72, reason: 'LLM 不可用时命中明确候选' }
-  }
-
-  return {
-    status: 'ask',
-    question: buildClarificationQuestion(pending.candidates, pending.question),
-    reason: '无法唯一识别用户选择的候选标的',
-  }
+  throw new Error('AI 未返回有效的候选标的判断结果。')
 }

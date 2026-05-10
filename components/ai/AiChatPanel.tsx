@@ -31,7 +31,7 @@ type AiEnvStatus = {
 export default function AiChatPanel({ mode, onClose }: AiChatPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { userId, stocks, config } = useStockStore()
+  const { userId, stocks, config, sync } = useStockStore()
   const { t, formatDateTime } = useI18n()
   const [sessions, setSessions] = useState<AiChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
@@ -226,6 +226,7 @@ export default function AiChatPanel({ mode, onClose }: AiChatPanelProps) {
       const decoder = new TextDecoder()
       let buffer = ''
       let nextSessionId = activeSessionId
+      let shouldSyncPortfolio = false
 
       const handleEvent = (raw: string) => {
         const event = raw.match(/^event:\s*(.+)$/m)?.[1]?.trim()
@@ -246,6 +247,8 @@ export default function AiChatPanel({ mode, onClose }: AiChatPanelProps) {
           )))
         } else if (event === 'error') {
           throw new Error(data.error ?? t('AI 对话失败'))
+        } else if (event === 'done') {
+          shouldSyncPortfolio = Boolean(data.dataChanged)
         }
       }
 
@@ -277,6 +280,9 @@ export default function AiChatPanel({ mode, onClose }: AiChatPanelProps) {
           }, ...current]
         })
         await refreshMessages(nextSessionId)
+      }
+      if (shouldSyncPortfolio) {
+        await sync()
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
