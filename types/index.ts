@@ -164,6 +164,35 @@ export interface TechnicalIndicatorSnapshot {
   trendBias: 'bullish' | 'neutral' | 'bearish'
 }
 
+export interface TechnicalIndicatorHistoryPoint {
+  date: string
+  close: number
+  changePercent: number | null
+  volumeRatio20: number | null
+  ma5: number | null
+  ma10: number | null
+  ma20: number | null
+  macd: {
+    dif: number | null
+    dea: number | null
+    histogram: number | null
+  }
+  rsi14: number | null
+  trendBias: TechnicalIndicatorSnapshot['trendBias']
+}
+
+export interface TechnicalIndicatorHistory {
+  window: number
+  points: TechnicalIndicatorHistoryPoint[]
+  summary: {
+    closeChangePercent: number | null
+    macdHistogramChange: number | null
+    rsiChange: number | null
+    bullishDays: number
+    bearishDays: number
+  }
+}
+
 export interface MarketIndexSnapshot {
   id: string
   code: string

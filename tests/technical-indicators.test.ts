@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildTechnicalIndicatorSnapshot, type CandlePoint } from '@/lib/technicalIndicators'
+import { buildTechnicalIndicatorHistory, buildTechnicalIndicatorSnapshot, type CandlePoint } from '@/lib/technicalIndicators'
 
 function createCandle(close: number, index: number): CandlePoint {
   return {
@@ -48,4 +48,19 @@ test('技术指标在样本不足时返回空值或中性趋势', () => {
   assert.equal(snapshot?.ma20, null)
   assert.equal(snapshot?.rsi14, null)
   assert.equal(snapshot?.atr14, null)
+})
+
+test('技术指标历史会生成最近窗口序列和变化摘要', () => {
+  const candles = Array.from({ length: 45 }, (_, index) => createCandle(10 + index * 0.2, index))
+
+  const history = buildTechnicalIndicatorHistory(candles, 20)
+
+  assert.equal(history.window, 20)
+  assert.equal(history.points.length, 20)
+  assert.equal(history.points[0]?.date, '2026-01-26')
+  assert.equal(history.points.at(-1)?.date, '2026-01-45')
+  assert.ok(history.points.at(-1)?.macd.histogram !== null)
+  assert.ok(history.summary.closeChangePercent !== null)
+  assert.ok(history.summary.macdHistogramChange !== null)
+  assert.ok(history.summary.rsiChange !== null)
 })

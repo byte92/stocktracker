@@ -1,6 +1,6 @@
 ---
 name: stock-get-technical-snapshot
-description: 读取单只股票的技术指标摘要。
+description: 读取单只股票的最新技术指标摘要和最近 20 个交易日的指标序列。
 metadata:
   stocktracker:
     kind: executable
@@ -41,4 +41,4 @@ metadata:
 
 # 输出要求
 
-返回技术指标快照和样本数量；数据不足时明确返回空值。
+返回最新技术指标快照、最近 20 个交易日的收盘价/涨跌幅/均线/MACD/RSI/趋势序列、近期变化摘要和样本数量；数据不足时明确返回空值。

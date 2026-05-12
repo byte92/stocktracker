@@ -1,6 +1,6 @@
 ---
 name: stock-get-financials
-description: 获取股票最近财报关键数据（EPS、营收增长、盈利增长等），支持美股并为 A 股提供结构化财报兜底。
+description: 获取股票最近财报关键数据（EPS、营收增长、盈利增长等）；结构化数据不可用时返回后续公开检索建议。
 metadata:
   stocktracker:
     kind: executable

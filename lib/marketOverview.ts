@@ -78,12 +78,6 @@ export type MarketAnalysisContext = {
   news: NewsItem[]
 }
 
-type MarketFallbackProbabilityInput = {
-  bias: 'bullish' | 'neutral' | 'bearish'
-  confidence: AiConfidence
-  note: string
-}
-
 const GROUP_LABELS: Record<MarketRegion, string> = {
   A: 'A 股大盘',
   HK: '港股大盘',
@@ -151,115 +145,170 @@ function safeParseJsonObject<T>(raw: string): T | null {
   }
 }
 
-function buildFallbackProbability({ bias, confidence, note }: MarketFallbackProbabilityInput): AiProbabilityScenario[] {
-  const templates = bias === 'bullish'
-    ? { up: 52, flat: 28, down: 20 }
-    : bias === 'bearish'
-      ? { up: 18, flat: 30, down: 52 }
-      : confidence === 'low'
-        ? { up: 30, flat: 40, down: 30 }
-        : { up: 34, flat: 38, down: 28 }
-
-  return [
-    {
-      label: '上涨',
-      probability: templates.up,
-      rationale: bias === 'bullish'
-        ? `当前风险偏好更偏向延续，前提是 ${note}。`
-        : `当前没有足够证据支持全面走强，除非 ${note}。`,
-    },
-    {
-      label: '震荡',
-      probability: templates.flat,
-      rationale: bias === 'neutral'
-        ? `当前更像分化与等待确认阶段，重点观察 ${note}。`
-        : `即便市场已有方向倾向，也可能先通过震荡完成消化，重点看 ${note}。`,
-    },
-    {
-      label: '下跌',
-      probability: templates.down,
-      rationale: bias === 'bearish'
-        ? `当前下行或防守压力更大，若 ${note} 迟迟不改善，弱势更可能延续。`
-        : `若 ${note} 被证伪，防守压力会明显抬升。`,
-    },
-  ]
+function requireTextField(parsed: Partial<AiAnalysisResult>, field: keyof AiAnalysisResult, missing: string[]) {
+  const value = parsed[field]
+  if (typeof value !== 'string' || !value.trim()) {
+    missing.push(String(field))
+    return ''
+  }
+  return value
 }
 
-function inferMarketFallback(context: MarketAnalysisContext): MarketFallbackProbabilityInput {
-  const spread = context.totalUpCount - context.totalDownCount
-  const strongest = context.strongestIndex?.changePercent ?? 0
-  const weakest = context.weakestIndex?.changePercent ?? 0
-  const bias: MarketFallbackProbabilityInput['bias'] =
-    spread >= 2 && strongest > Math.abs(weakest) ? 'bullish'
-      : spread <= -2 || Math.abs(weakest) > strongest + 1 ? 'bearish'
-        : 'neutral'
-  const confidence: AiConfidence = context.news.length > 0 ? 'medium' : 'low'
-  return {
-    bias,
-    confidence,
-    note: '三地强弱排序是否继续维持，以及最强市场能否继续扩散带动风险偏好',
+function requireArrayField<T>(parsed: Partial<AiAnalysisResult>, field: keyof AiAnalysisResult, missing: string[]) {
+  const value = parsed[field]
+  if (!Array.isArray(value) || value.length === 0) {
+    missing.push(String(field))
+    return [] as T[]
   }
+  return value as T[]
+}
+
+function textFromRecord(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return ''
+}
+
+function normalizeProbabilityScenarios(value: unknown): AiProbabilityScenario[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+      const record = item as Record<string, unknown>
+      const label = textFromRecord(record, ['label', 'name', 'scenario'])
+      const probability = Number(record.probability ?? record.percent ?? record.chance)
+      const rationale = textFromRecord(record, ['rationale', 'reason', 'description', 'explanation', 'impact'])
+      if (!label || !Number.isFinite(probability) || !rationale) return null
+      return { label, probability, rationale }
+    })
+    .filter((item): item is AiProbabilityScenario => Boolean(item))
+}
+
+function normalizeMarketAnalysisShape(parsed: Partial<AiAnalysisResult> | null) {
+  if (!parsed) return parsed
+  return {
+    ...parsed,
+    probabilityAssessment: normalizeProbabilityScenarios(parsed.probabilityAssessment),
+    timeHorizons: Array.isArray(parsed.timeHorizons)
+      ? parsed.timeHorizons.map((item) => ({
+          ...item,
+          scenarios: normalizeProbabilityScenarios((item as { scenarios?: unknown }).scenarios),
+        }))
+      : parsed.timeHorizons,
+  }
+}
+
+function collectMissingMarketAnalysisFields(parsed: Partial<AiAnalysisResult> | null) {
+  if (!parsed) {
+    return ['__json__']
+  }
+
+  const missing: string[] = []
+  if (!['high', 'medium', 'weak'].includes(String(parsed.analysisStrength))) missing.push('analysisStrength')
+  if (!['low', 'medium', 'high'].includes(String(parsed.confidence))) missing.push('confidence')
+  for (const field of ['summary', 'stance', 'disclaimer'] as const) {
+    const value = parsed[field]
+    if (typeof value !== 'string' || !value.trim()) missing.push(field)
+  }
+  for (const field of [
+    'facts',
+    'inferences',
+    'actionPlan',
+    'invalidationSignals',
+    'timeHorizons',
+    'probabilityAssessment',
+    'technicalSignals',
+    'newsDrivers',
+    'keyLevels',
+    'actionableObservations',
+    'risks',
+    'evidence',
+  ] as const) {
+    const value = parsed[field]
+    if (!Array.isArray(value) || value.length === 0) missing.push(field)
+  }
+  return Array.from(new Set(missing))
+}
+
+async function repairMarketAnalysisResult(
+  config: AiConfig,
+  parsed: Partial<AiAnalysisResult> | null,
+  missingFields: string[],
+  context: MarketAnalysisContext,
+) {
+  if (!parsed || !missingFields.length || missingFields.includes('__json__')) return parsed
+  const raw = await callProvider(
+    config,
+    '你是严格的 JSON 结构修复助手。只输出 JSON 对象，不要输出解释。',
+    JSON.stringify({
+      task: '补全 AI 大盘分析结果缺失的字段。必须保留 currentResult 中已有结论，只补齐 missingFields；补齐内容必须基于 context，不得编造不存在的数据。',
+      missingFields,
+      currentResult: parsed,
+      context,
+      outputContract: {
+        actionableObservations: ['string'],
+        risks: ['string'],
+        evidence: ['string'],
+      },
+    }),
+  )
+  const patch = safeParseJsonObject<Partial<AiAnalysisResult>>(raw)
+  return patch ? { ...parsed, ...patch } : parsed
 }
 
 function normalizeMarketAnalysisResult(
   parsed: Partial<AiAnalysisResult> | null,
-  fallback: {
-    summary: string
-    evidence: string[]
-    signals?: AiTechnicalSignal[]
-    news?: AiNewsDriver[]
-  },
 ): AiAnalysisResult {
-  const summary = parsed?.summary?.trim() || fallback.summary
-  const fallbackInput = { bias: 'neutral' as const, confidence: 'medium' as const, note: '三地强弱排序与风险偏好是否继续延续' }
-  const probabilityAssessment = parsed?.probabilityAssessment?.length ? parsed.probabilityAssessment : buildFallbackProbability(fallbackInput)
+  if (!parsed) {
+    throw new Error('AI 大盘分析返回不是有效 JSON，已停止生成分析。')
+  }
+
+  const missing = collectMissingMarketAnalysisFields(parsed).filter((field) => field !== '__json__')
+  const analysisStrength = ['high', 'medium', 'weak'].includes(String(parsed.analysisStrength)) ? parsed.analysisStrength! : 'weak'
+  const confidence = ['low', 'medium', 'high'].includes(String(parsed.confidence)) ? parsed.confidence! : 'low'
+  const summary = requireTextField(parsed, 'summary', missing)
+  const stance = requireTextField(parsed, 'stance', missing)
+  const disclaimer = requireTextField(parsed, 'disclaimer', missing)
+  const facts = requireArrayField<string>(parsed, 'facts', missing)
+  const inferences = requireArrayField<string>(parsed, 'inferences', missing)
+  const actionPlan = requireArrayField<string>(parsed, 'actionPlan', missing)
+  const invalidationSignals = requireArrayField<string>(parsed, 'invalidationSignals', missing)
+  const timeHorizons = requireArrayField<AiAnalysisResult['timeHorizons'][number]>(parsed, 'timeHorizons', missing)
+  const probabilityAssessment = requireArrayField<AiProbabilityScenario>(parsed, 'probabilityAssessment', missing)
+  const technicalSignals = requireArrayField<AiTechnicalSignal>(parsed, 'technicalSignals', missing)
+  const newsDrivers = requireArrayField<AiNewsDriver>(parsed, 'newsDrivers', missing)
+  const keyLevels = requireArrayField<string>(parsed, 'keyLevels', missing)
+  const actionableObservations = requireArrayField<string>(parsed, 'actionableObservations', missing)
+  const risks = requireArrayField<string>(parsed, 'risks', missing)
+  const evidence = requireArrayField<string>(parsed, 'evidence', missing)
+
+  if (missing.length) {
+    throw new Error(`AI 大盘分析返回缺少必填字段：${Array.from(new Set(missing)).join('、')}。已停止生成分析。`)
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     cached: false,
-    analysisStrength: 'high',
+    analysisStrength,
     summary,
-    stance: parsed?.stance?.trim() || '中性偏观察',
-    facts: parsed?.facts?.length ? parsed.facts : fallback.evidence,
-    inferences: parsed?.inferences?.length ? parsed.inferences : [summary],
-    actionPlan: parsed?.actionPlan?.length ? parsed.actionPlan : ['优先把大盘分析作为节奏参考，再结合标的和仓位做决策。'],
-    invalidationSignals: parsed?.invalidationSignals?.length
-      ? parsed.invalidationSignals
-      : ['若三地指数强弱排序明显反转，或宏观新闻快速转向，应重新评估当前大盘判断。'],
-    timeHorizons: parsed?.timeHorizons?.length ? parsed.timeHorizons : [
-      { horizon: 'short', summary: '未来 1-5 个交易日重点观察指数强弱分化与量价配合。', scenarios: probabilityAssessment },
-      { horizon: 'medium', summary: '未来 1-4 周重点观察趋势延续、政策预期和新闻兑现。', scenarios: probabilityAssessment },
-    ],
+    stance,
+    facts,
+    inferences,
+    actionPlan,
+    invalidationSignals,
+    timeHorizons,
     probabilityAssessment,
-    technicalSignals: parsed?.technicalSignals?.length ? parsed.technicalSignals : (fallback.signals ?? []),
-    newsDrivers: parsed?.newsDrivers?.length ? parsed.newsDrivers : (fallback.news ?? []),
-    keyLevels: parsed?.keyLevels?.length ? parsed.keyLevels : ['关注三地大盘代表指数的近期支撑与阻力位'],
-    actionableObservations: parsed?.actionableObservations?.length ? parsed.actionableObservations : ['把大盘分析作为节奏参考，仍需结合标的与仓位管理。'],
-    risks: parsed?.risks?.length ? parsed.risks : ['外部指数、新闻和技术指标数据可能延迟或缺失。'],
-    confidence: parsed?.confidence ?? fallbackInput.confidence,
-    disclaimer: parsed?.disclaimer?.trim() || '以上内容仅基于当前大盘数据进行条件式分析，不构成投资建议或收益承诺。',
-    evidence: parsed?.evidence?.length ? parsed.evidence : fallback.evidence,
+    technicalSignals,
+    newsDrivers,
+    keyLevels,
+    actionableObservations,
+    risks,
+    confidence,
+    disclaimer,
+    evidence,
   }
-}
-
-function mapMarketSignals(snapshots: MarketIndexSnapshot[]): AiTechnicalSignal[] {
-  return snapshots.slice(0, 6).map((item) => ({
-    name: item.name,
-    value: `${item.price.toFixed(2)} / ${item.changePercent.toFixed(2)}%`,
-    interpretation: item.indicators
-      ? `趋势 ${item.indicators.trendBias}，RSI ${item.indicators.rsi14?.toFixed(1) ?? '--'}`
-      : '暂无完整技术指标',
-  }))
-}
-
-function toAiNewsDrivers(news: NewsItem[]): AiNewsDriver[] {
-  return news.map((item) => ({
-    headline: item.title,
-    source: item.source,
-    publishedAt: item.publishedAt,
-    sentiment: 'neutral',
-    impact: item.summary || '关注新闻对指数情绪和风格切换的影响。',
-    url: item.url,
-  }))
 }
 
 function marketPrompt(context: MarketAnalysisContext, config: AiConfig) {
@@ -460,27 +509,15 @@ export async function generateMarketAnalysis(aiConfig: AiConfig, forceRefresh = 
   }
 
   const task = await runMarketAnalysisAgentTask(aiConfig)
-  const { context, indices, news } = task.context
+  const { context } = task.context
   const { system, user } = marketPrompt(context, aiConfig)
   const raw = await callProvider(aiConfig, system, user)
-  const parsed = safeParseJsonObject<Partial<AiAnalysisResult>>(raw)
+  let parsed = safeParseJsonObject<Partial<AiAnalysisResult>>(raw)
+  parsed = normalizeMarketAnalysisShape(parsed)
+  parsed = await repairMarketAnalysisResult(aiConfig, parsed, collectMissingMarketAnalysisFields(parsed), context)
+  parsed = normalizeMarketAnalysisShape(parsed)
 
-  const result = normalizeMarketAnalysisResult(parsed, {
-    summary: `当前三地大盘共 ${indices.length} 个代表指数，短线更适合先观察强弱分化和风格切换，而不是单边预设。`,
-    evidence: [
-      `上涨指数 ${context.totalUpCount} 个`,
-      `下跌指数 ${context.totalDownCount} 个`,
-      context.strongestIndex ? `最强指数 ${context.strongestIndex.name} ${context.strongestIndex.changePercent.toFixed(2)}%` : '暂无最强指数结论',
-      context.weakestIndex ? `最弱指数 ${context.weakestIndex.name} ${context.weakestIndex.changePercent.toFixed(2)}%` : '暂无最弱指数结论',
-    ],
-    signals: mapMarketSignals(indices),
-    news: toAiNewsDrivers(news),
-  })
-  if (!parsed?.probabilityAssessment?.length) {
-    const inferred = inferMarketFallback(context)
-    result.probabilityAssessment = buildFallbackProbability(inferred)
-    result.confidence = parsed?.confidence ?? inferred.confidence
-  }
+  const result = normalizeMarketAnalysisResult(parsed)
 
   setCachedMarketAnalysis(cacheKey, result, 900)
   return result

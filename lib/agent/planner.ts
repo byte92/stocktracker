@@ -1,55 +1,24 @@
-import { detectStockCode, formatStockCandidate, matchStocks } from '@/lib/agent/entity/stockMatcher'
 import { resolveSecurityCandidates, type SecurityCandidate } from '@/lib/agent/entity/securityResolver'
-import { MARKET_LABELS, SUPPORTED_MARKETS } from '@/config/defaults'
 import type { AgentPlan, AgentResolvedSecurity, AgentSkillCall } from '@/lib/agent/types'
 import type { AiChatMessage, AiConfig, Market, Stock } from '@/types'
 import { callJsonCompletion } from '@/lib/external/llmProvider'
 import { buildPlannerSystemPrompt } from '@/lib/agent/planner/prompt'
 import { isPlannerNormalizedSkillName, resolvePlannerSkillActionName } from '@/lib/agent/planner/skillCatalog'
 import {
-  appendDomainCalculationFallback,
-  appendExternalResearchFallback,
   buildDefaultExternalStockSkillCalls,
   buildDefaultStockSkillCalls,
   buildExternalStockSkillCalls,
   buildStockSkillCalls,
 } from '@/lib/agent/planner/skillCalls'
-import { dedupeSkillCalls, includesAny, textArg } from '@/lib/agent/planner/text'
-import { buildFallbackSearchQuery, normalizeWebSkillCalls } from '@/lib/agent/planner/web'
+import { dedupeSkillCalls, textArg } from '@/lib/agent/planner/text'
+import { buildDefaultSearchQuery, normalizeWebSkillCalls } from '@/lib/agent/planner/web'
 
-const PORTFOLIO_KEYWORDS = ['组合', '仓位', '持仓', '风险', '亏损', '盈利', '收益', '回撤', '集中', '配置', '哪只', '哪些']
-const TRADE_KEYWORDS = ['交易', '复盘', '买入', '卖出', '分红', '派息', '成本', '加仓', '减仓']
-const TRADE_RECORD_ACTION_KEYWORDS = ['买入', '买进', '购入', '加仓', '卖出', '卖掉', '减仓', '清仓', '分红', '派息', '股息']
-const OUT_OF_SCOPE_KEYWORDS = ['天气', '菜谱', '写代码', '编程', '电影', '小说', '医疗', '法律', '旅游', '翻译']
-
-const EXPLICIT_PORTFOLIO_KEYWORDS = ['组合', '全部', '整体', '所有', '每只', '哪些', '哪只', '仓位', '配置']
-const FOLLOW_UP_STOCK_KEYWORDS = ['收益', '盈利', '亏损', '成本', '均价', '平均', '持仓', '分红', '派息', '手续费', '操作', '建议', '怎么看', '怎么样', '多少']
 const LLM_PLANNER_TIMEOUT_MS = 8_000
 const PLANNER_REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high'] as const
 
 type PlannerReasoningEffort = typeof PLANNER_REASONING_EFFORTS[number]
 
 type ExternalStockTarget = Pick<SecurityCandidate, 'code' | 'name' | 'market'>
-
-function inferMarketFromCode(code: string): Market | null {
-  if (/^\d{6}$/.test(code)) return 'A'
-  if (/^\d{5}$/.test(code)) return 'HK'
-  if (/^[A-Z]{1,6}$/.test(code)) return 'US'
-  return null
-}
-
-function inferMarketFromUserIntent(content: string, code: string): Market | null {
-  if (/(美股|美国|纳斯达克|纽交所|nyse|nasdaq)/i.test(content)) return 'US'
-  if (/(港股|香港|港交所|hk\b)/i.test(content)) return 'HK'
-  if (/(A股|A 股|沪深|上证|深交所|上交所)/i.test(content)) return 'A'
-  if (/(加密|数字货币|虚拟货币|crypto|币|usdt|usdc|[-_/](usd|usdt|usdc)\b)/i.test(content)) return 'CRYPTO'
-  if (/(基金|场内基金|ETF)/i.test(content) && /^\d{6}$/.test(code)) return 'FUND'
-  return inferMarketFromCode(code)
-}
-
-function marketOptionsText() {
-  return SUPPORTED_MARKETS.map((market) => `${MARKET_LABELS[market]}（${market}）`).join('、')
-}
 
 function isPlannerReasoningEffort(value: string): value is PlannerReasoningEffort {
   return PLANNER_REASONING_EFFORTS.includes(value as PlannerReasoningEffort)
@@ -92,13 +61,11 @@ function buildModelStockSkillCalls(stock: Stock, plan: AgentPlan, userMessage: s
   const skills = buildDefaultStockSkillCalls(stock)
   if (planRequestsSkill(plan, 'stock.getFinancials')) {
     const financialArgs: Record<string, unknown> = { ...plannedSkillArgs(plan, 'stock.getFinancials'), symbol: stock.code, market: stock.market }
-    if (!financialArgs.researchQuery) financialArgs.researchQuery = buildFallbackSearchQuery(stock, userMessage)
+    if (!financialArgs.researchQuery) financialArgs.researchQuery = buildDefaultSearchQuery(stock, userMessage)
     skills.push({ name: 'stock.getFinancials', args: financialArgs, reason: '模型判断需要财报或业绩数据' })
   }
   skills.push(...normalizeFinanceCalculationCalls(plan, stock, userMessage))
   skills.push(...normalizeWebSkillCalls(plan, userMessage, stock))
-  appendExternalResearchFallback(skills, userMessage, stock)
-  appendDomainCalculationFallback(skills, userMessage, stock)
   return dedupeSkillCalls(skills)
 }
 
@@ -106,11 +73,10 @@ function buildModelExternalStockSkillCalls(target: ExternalStockTarget, plan: Ag
   const skills = buildDefaultExternalStockSkillCalls(target)
   if (planRequestsSkill(plan, 'stock.getFinancials')) {
     const financialArgs: Record<string, unknown> = { ...plannedSkillArgs(plan, 'stock.getFinancials'), symbol: target.code, market: target.market }
-    if (!financialArgs.researchQuery) financialArgs.researchQuery = buildFallbackSearchQuery(target, userMessage)
+    if (!financialArgs.researchQuery) financialArgs.researchQuery = buildDefaultSearchQuery(target, userMessage)
     skills.push({ name: 'stock.getFinancials', args: financialArgs, reason: '模型判断需要财报或业绩数据' })
   }
   skills.push(...normalizeWebSkillCalls(plan, userMessage, target))
-  appendExternalResearchFallback(skills, userMessage, target)
   return dedupeSkillCalls(skills)
 }
 
@@ -197,7 +163,7 @@ async function normalizeLlmPlan(plan: AgentPlan, userMessage: string, stocks: St
   const stock = local ? stocks.find((item) => item.id === local.stockId) : null
   if (local && stock) {
     return {
-      intent: includesAny(userMessage, TRADE_KEYWORDS) ? 'trade_review' : 'stock_analysis',
+      intent: normalizedPlan.intent === 'unknown' ? 'stock_analysis' : normalizedPlan.intent,
       entities: [{ type: 'stock', raw: query, stockId: stock.id, code: stock.code, name: stock.name, market: stock.market, confidence: local.confidence }],
       requiredSkills: dedupeSkillCalls([
         ...buildModelStockSkillCalls(stock, normalizedPlan, userMessage),
@@ -278,99 +244,6 @@ async function planViaLLM(userMessage: string, stocks: Stock[], history: AiChatM
   return normalizeLlmPlan(plan, userMessage, stocks)
 }
 
-async function tryPlanViaLLM(userMessage: string, stocks: Stock[], history: AiChatMessage[] | undefined, aiConfig: AiConfig) {
-  if (!aiConfig.enabled || !aiConfig.baseUrl || !aiConfig.model) return null
-  try {
-    return await planViaLLM(userMessage, stocks, history, aiConfig)
-  } catch {
-    return null
-  }
-}
-
-function findRecentStockFocus(history: AiChatMessage[] | undefined, stocks: Stock[]) {
-  for (const message of [...(history ?? [])].reverse()) {
-    const agent = message.contextSnapshot?.agent as { entities?: unknown } | undefined
-    const entities = agent?.entities
-    if (!Array.isArray(entities)) continue
-
-    for (const entity of entities) {
-      if (!entity || typeof entity !== 'object') continue
-      const stockId = 'stockId' in entity && typeof entity.stockId === 'string' ? entity.stockId : ''
-      const code = 'code' in entity && typeof entity.code === 'string' ? entity.code : ''
-      const name = 'name' in entity && typeof entity.name === 'string' ? entity.name : ''
-      const stock = stocks.find((item) => item.id === stockId)
-        ?? (code ? stocks.find((item) => item.code.toUpperCase() === code.toUpperCase()) : undefined)
-        ?? (name ? stocks.find((item) => item.name === name) : undefined)
-      if (stock) return stock
-    }
-  }
-  return null
-}
-
-function shouldUseRecentStockFocus(content: string) {
-  if (!includesAny(content, FOLLOW_UP_STOCK_KEYWORDS)) return false
-  return !includesAny(content, EXPLICIT_PORTFOLIO_KEYWORDS)
-}
-
-function extractMentionedCodes(content: string) {
-  const matches = content.match(/\b[A-Z]{1,6}\b|\b\d{5,6}\b/g) ?? []
-  const ignoredTokens = new Set(['A', 'SH', 'SZ', 'BJ', 'SS', 'HK', 'US', 'ETF', 'PE', 'PB', 'TTM', 'EPS', 'RSI', 'MACD', 'BOLL', 'ATR'])
-  return Array.from(new Set(
-    matches
-      .map((item) => item.toUpperCase())
-      .filter((item) => !ignoredTokens.has(item)),
-  ))
-}
-
-async function findRecentExternalTargets(history: AiChatMessage[] | undefined, stocks: Stock[]) {
-  const existingCodes = new Set(stocks.map((stock) => stock.code.toUpperCase()))
-  const targets: SecurityCandidate[] = []
-
-  const pushTarget = (candidate: SecurityCandidate) => {
-    if (existingCodes.has(candidate.code.toUpperCase())) return
-    if (targets.some((item) => item.code === candidate.code && item.market === candidate.market)) return
-    targets.push(candidate)
-  }
-
-  for (const message of [...(history ?? [])].reverse()) {
-    const agent = message.contextSnapshot?.agent as { entities?: unknown } | undefined
-    const entities = agent?.entities
-    if (Array.isArray(entities)) {
-      for (const entity of entities) {
-        if (!entity || typeof entity !== 'object') continue
-        const code = 'code' in entity && typeof entity.code === 'string' ? entity.code : ''
-        const market = 'market' in entity && typeof entity.market === 'string' ? entity.market as Market : null
-        const name = 'name' in entity && typeof entity.name === 'string' ? entity.name : code
-        if (code && market) pushTarget({ code, name, market, confidence: 0.76, inPortfolio: false, source: 'inference' })
-      }
-    }
-
-    for (const code of extractMentionedCodes(message.content)) {
-      for (const candidate of await resolveSecurityCandidates(code, stocks, 1)) {
-        pushTarget(candidate)
-      }
-    }
-
-    if (targets.length >= 3) break
-  }
-
-  return targets.slice(0, 3)
-}
-
-function shouldUseRecentExternalTargets(content: string) {
-  return /(这|那|上述|上面|前面|它们|他们|两只|几个|这些|都|一起|对比|比较|分析)/.test(content)
-    && !detectStockCode(content)
-    && !includesAny(content, EXPLICIT_PORTFOLIO_KEYWORDS)
-}
-
-function looksLikeTradeRecordRequest(content: string) {
-  if (!includesAny(content, TRADE_RECORD_ACTION_KEYWORDS)) return false
-  if (/(怎么看|怎么样|建议|适合|能不能|可不可以|要不要|是否|应该|复盘|分析)/.test(content)) return false
-  const hasQuantity = /\d+(?:,\d{3})*(?:\.\d+)?\s*(?:股|份|枚|手|shares?|coins?)/i.test(content)
-  const hasMoney = /\d+(?:,\d{3})*(?:\.\d+)?\s*(?:元|块|港币|美元|USDT|usd|hkd|cny)/i.test(content)
-  return hasQuantity || (/(分红|派息|股息)/.test(content) && hasMoney)
-}
-
 export async function planAgentResponse({
   userMessage,
   stocks,
@@ -387,27 +260,11 @@ export async function planAgentResponse({
   aiConfig: AiConfig
 }): Promise<AgentPlan> {
   const content = userMessage.trim()
-  const code = detectStockCode(content)
 
   const selectedSecurities: AgentResolvedSecurity[] = [
     ...resolvedSecurities,
     ...externalStocks.map((item) => ({ symbol: item.symbol, market: item.market, inPortfolio: false })),
   ]
-
-  if (looksLikeTradeRecordRequest(content)) {
-    return {
-      intent: 'trade_record',
-      entities: [],
-      requiredSkills: [
-        {
-          name: 'trade.prepareRecord',
-          args: { text: content },
-          reason: '用户正在用自然语言录入买入、卖出或分红，需要先整理待确认草稿。',
-        },
-      ],
-      responseMode: 'answer',
-    }
-  }
 
   if (selectedSecurities.length) {
     const localTargets: Stock[] = []
@@ -434,8 +291,8 @@ export async function planAgentResponse({
       ...externalTargets.flatMap((target) => buildExternalStockSkillCalls(target, content)),
     ]
 
-    const llmPlan = await tryPlanViaLLM(content, stocks, history, aiConfig)
-    if (llmPlan?.responseMode === 'answer') {
+    const llmPlan = await planViaLLM(content, stocks, history, aiConfig)
+    if (llmPlan.responseMode === 'answer') {
       intent = llmPlan.intent === 'unknown' ? 'stock_analysis' : llmPlan.intent
       skills = [
         ...localTargets.flatMap((stock) => buildModelStockSkillCalls(stock, llmPlan, content)),
@@ -470,150 +327,5 @@ export async function planAgentResponse({
     }
   }
 
-  const llmPlan = await tryPlanViaLLM(content, stocks, history, aiConfig)
-  if (llmPlan) return llmPlan
-
-  if (includesAny(content, OUT_OF_SCOPE_KEYWORDS) && !includesAny(content, PORTFOLIO_KEYWORDS) && !code) {
-    return {
-      intent: 'out_of_scope',
-      entities: [],
-      requiredSkills: [],
-      responseMode: 'refuse',
-    }
-  }
-
-  const matches = matchStocks(content, stocks, 3)
-  if (matches.length === 1 && matches[0].confidence >= 0.72) {
-    const stock = matches[0].stock
-    return {
-      intent: includesAny(content, TRADE_KEYWORDS) ? 'trade_review' : 'stock_analysis',
-      entities: [{ type: 'stock', raw: content, stockId: stock.id, code: stock.code, name: stock.name, market: stock.market, confidence: matches[0].confidence }],
-      requiredSkills: buildStockSkillCalls(stock, content),
-      responseMode: 'answer',
-    }
-  }
-
-  if (matches.length > 1 && matches[0].confidence - matches[1].confidence < 0.2) {
-    return {
-      intent: 'stock_analysis',
-      entities: matches.map((match) => ({
-        type: 'stock',
-        raw: content,
-        stockId: match.stock.id,
-        code: match.stock.code,
-        name: match.stock.name,
-        market: match.stock.market,
-        confidence: match.confidence,
-      })),
-      requiredSkills: [
-        { name: 'security.resolve', args: { query: content }, reason: '存在多只可能标的，需要明确候选列表供澄清' },
-      ],
-      responseMode: 'clarify',
-      clarifyQuestion: `你想分析的是 ${matches.map((match) => formatStockCandidate(match.stock)).join('，')} 中的哪一只？`,
-    }
-  }
-
-  if (code && !matches.length) {
-    const inferredMarket = inferMarketFromUserIntent(content, code)
-    if (inferredMarket) {
-      const target = { code, name: code, market: inferredMarket }
-      return {
-        intent: 'stock_analysis',
-        entities: [{ type: 'stock', raw: code, code, market: inferredMarket, confidence: 0.72 }],
-        requiredSkills: buildExternalStockSkillCalls(target, content),
-        responseMode: 'answer',
-      }
-    }
-    return {
-      intent: 'stock_analysis',
-      entities: [{ type: 'stock', raw: code, code, confidence: 0.55 }],
-      requiredSkills: [
-        { name: 'security.resolve', args: { query: code }, reason: '代码未在持仓中找到，需推断候选市场' },
-      ],
-      responseMode: 'clarify',
-      clarifyQuestion: `我识别到了 ${code}，但还不能确认它属于哪个市场。你想分析的是 ${marketOptionsText()} 中的哪一个？`,
-    }
-  }
-
-  if (shouldUseRecentExternalTargets(content)) {
-    const recentExternalTargets = await findRecentExternalTargets(history, stocks)
-    if (recentExternalTargets.length) {
-      return {
-        intent: 'stock_analysis',
-        entities: recentExternalTargets.map((candidate) => ({ type: 'stock', raw: candidate.name, code: candidate.code, name: candidate.name, market: candidate.market, confidence: candidate.confidence })),
-        requiredSkills: recentExternalTargets.flatMap((candidate) => buildExternalStockSkillCalls(candidate, content)),
-        responseMode: 'answer',
-      }
-    }
-  }
-
-  const recentStockFocus = findRecentStockFocus(history, stocks)
-  if (recentStockFocus && shouldUseRecentStockFocus(content)) {
-    return {
-      intent: includesAny(content, TRADE_KEYWORDS) ? 'trade_review' : 'stock_analysis',
-      entities: [{
-        type: 'stock',
-        raw: content,
-        stockId: recentStockFocus.id,
-        code: recentStockFocus.code,
-        name: recentStockFocus.name,
-        market: recentStockFocus.market,
-        confidence: 0.78,
-      }],
-      requiredSkills: buildStockSkillCalls(recentStockFocus, content),
-      responseMode: 'answer',
-    }
-  }
-
-  if (includesAny(content, PORTFOLIO_KEYWORDS)) {
-    return {
-      intent: includesAny(content, ['风险', '回撤', '集中']) ? 'portfolio_risk' : 'portfolio_summary',
-      entities: [{ type: 'portfolio', raw: '当前组合', confidence: 0.86 }],
-      requiredSkills: [
-        { name: 'portfolio.getSummary', args: {}, reason: '组合类问题需要读取组合摘要' },
-        { name: 'portfolio.getTopPositions', args: { limit: 8 }, reason: '组合分析需要关注最大仓位、最大盈亏和近期活跃持仓' },
-      ],
-      responseMode: 'answer',
-    }
-  }
-
-  const resolvedCandidates = await resolveSecurityCandidates(content, stocks, 3)
-  const resolvedLocal = resolvedCandidates.find((candidate) => candidate.inPortfolio && candidate.stockId)
-  const resolvedStock = resolvedLocal ? stocks.find((item) => item.id === resolvedLocal.stockId) : null
-  if (resolvedLocal && resolvedStock) {
-    return {
-      intent: includesAny(content, TRADE_KEYWORDS) ? 'trade_review' : 'stock_analysis',
-      entities: [{
-        type: 'stock',
-        raw: content,
-        stockId: resolvedStock.id,
-        code: resolvedStock.code,
-        name: resolvedStock.name,
-        market: resolvedStock.market,
-        confidence: resolvedLocal.confidence,
-      }],
-      requiredSkills: buildStockSkillCalls(resolvedStock, content),
-      responseMode: 'answer',
-    }
-  }
-
-  const resolvedExternalTargets = resolvedCandidates.filter((candidate) => !candidate.inPortfolio)
-  if (resolvedExternalTargets.length) {
-    return {
-      intent: 'stock_analysis',
-      entities: resolvedExternalTargets.map((candidate) => ({ type: 'stock', raw: candidate.name, code: candidate.code, name: candidate.name, market: candidate.market, confidence: candidate.confidence })),
-      requiredSkills: resolvedExternalTargets.flatMap((candidate) => buildExternalStockSkillCalls(candidate, content)),
-      responseMode: 'answer',
-    }
-  }
-
-  return {
-    intent: 'unknown',
-    entities: [{ type: 'portfolio', raw: '当前组合', confidence: 0.45 }],
-    requiredSkills: [
-      { name: 'portfolio.getSummary', args: {}, reason: '模型规划不可用，使用兜底组合摘要' },
-      { name: 'portfolio.getTopPositions', args: { limit: 5 }, reason: '模型规划不可用，使用兜底持仓' },
-    ],
-    responseMode: 'answer',
-  }
+  return planViaLLM(content, stocks, history, aiConfig)
 }

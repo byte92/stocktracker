@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { describeClientRequestError, readJsonResponse } from '@/lib/api/client'
 import { nextApiUrls } from '@/lib/api/endpoints'
+import { formatProbabilityScenario } from '@/lib/ai/display'
 import { useI18n } from '@/lib/i18n'
 import { useStockStore } from '@/store/useStockStore'
 import type { AiAnalysisHistoryRecord, AiAnalysisResult, Stock } from '@/types'
@@ -151,7 +152,7 @@ export default function StockAnalysisPanel({ stock }: { stock: Stock }) {
               <Block title={t('事实依据')} items={result.facts} />
               <Block title={t('核心判断')} items={result.inferences} />
               <Block title={t('失效信号')} items={result.invalidationSignals} />
-              <Block title={t('概率分析')} items={result.probabilityAssessment.map((item) => `${item.label} ${item.probability}%：${item.rationale}`)} />
+              <Block title={t('概率分析')} items={result.probabilityAssessment.map(formatProbabilityScenario)} />
               <Block title={t('技术信号')} items={result.technicalSignals.map((item) => `${item.name}：${item.value}，${item.interpretation}`)} />
               <Block title={t('关键价位')} items={result.keyLevels} />
               <Block title={t('新闻驱动')} items={result.newsDrivers.map((item) => `${item.headline}（${item.source}）：${item.impact}`)} />

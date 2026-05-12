@@ -4,15 +4,11 @@ import { dedupeSkillCalls, extractUrls, stringArrayArg, stripUrls, textArg } fro
 
 export type StockSearchTarget = Pick<Stock, 'code' | 'name' | 'market'>
 
-export function buildFallbackSearchQuery(target: StockSearchTarget, content: string) {
+export function buildDefaultSearchQuery(target: StockSearchTarget, content: string) {
   return [target.name, target.code, content].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
 }
 
-export function hasWebSkill(calls: AgentSkillCall[]) {
-  return calls.some((call) => call.name.startsWith('web.'))
-}
-
-export function appendUrlBrowseFallback(calls: AgentSkillCall[], userMessage: string) {
+export function appendUrlBrowseCall(calls: AgentSkillCall[], userMessage: string) {
   const urls = extractUrls(userMessage)
   if (!urls.length || calls.some((call) => call.name === 'web.browse')) return
   calls.push({
@@ -93,6 +89,6 @@ export function normalizeWebSkillCalls(plan: AgentPlan, userMessage: string, tar
     }
   }
 
-  appendUrlBrowseFallback(calls, userMessage)
+  appendUrlBrowseCall(calls, userMessage)
   return dedupeSkillCalls(calls)
 }

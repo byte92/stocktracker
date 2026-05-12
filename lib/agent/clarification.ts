@@ -91,9 +91,9 @@ function candidateLabel(candidate: AgentClarificationCandidate) {
   return `${candidate.name || candidate.code}（${candidate.code}，${market}${portfolio}）`
 }
 
-export function buildClarificationQuestion(candidates: AgentClarificationCandidate[], fallback?: string) {
+export function buildClarificationQuestion(candidates: AgentClarificationCandidate[], prompt?: string) {
   const labels = candidates.map(candidateLabel).join('；')
-  if (fallback && labels) return `${fallback}\n\n我目前能识别到这些候选：${labels}。请直接回复名称、代码，或补充更具体的市场/标的信息。`
+  if (prompt && labels) return `${prompt}\n\n我目前能识别到这些候选：${labels}。请直接回复名称、代码，或补充更具体的市场/标的信息。`
   return `我还不能确定你指的是哪一个标的。目前能识别到这些候选：${labels}。请直接回复名称、代码，或补充更具体的市场/标的信息。`
 }
 

@@ -2,11 +2,11 @@ import { exchangeRateService, MARKET_CURRENCY, type Currency } from '@/lib/Excha
 import { calcStockSummary } from '@/lib/finance'
 import { stockPriceService } from '@/lib/StockPriceService'
 import { getDailyQuotePnl } from '@/lib/quoteDailyPnl'
-import { buildTechnicalIndicatorSnapshot } from '@/lib/technicalIndicators'
+import { buildTechnicalIndicatorHistory, buildTechnicalIndicatorSnapshot } from '@/lib/technicalIndicators'
 import { fetchDailyCandles } from '@/lib/external/kline'
 import { fetchStockNews } from '@/lib/external/news'
 import type { AgentSkill } from '@/lib/agent/types'
-import type { AiConfig, Market, NewsItem, Stock, TechnicalIndicatorSnapshot } from '@/types'
+import type { AiConfig, Market, NewsItem, Stock, TechnicalIndicatorHistory, TechnicalIndicatorSnapshot } from '@/types'
 
 export type PortfolioAnalysisContext = {
   baseCurrency: Currency
@@ -50,6 +50,7 @@ export type StockAnalysisContext = {
   summary: ReturnType<typeof calcStockSummary>
   quote: Awaited<ReturnType<typeof stockPriceService.getQuote>>
   indicators: TechnicalIndicatorSnapshot | null
+  recentIndicators: TechnicalIndicatorHistory
   news: NewsItem[]
 }
 
@@ -151,8 +152,9 @@ async function buildStockAnalysisContext(stock: Stock, aiConfig: AiConfig): Prom
   const summary = calcStockSummary(stock, quote?.price)
   const candles = await fetchDailyCandles(stock.code, stock.market)
   const indicators = buildTechnicalIndicatorSnapshot(candles)
+  const recentIndicators = buildTechnicalIndicatorHistory(candles, 20)
   const news = aiConfig.newsEnabled ? await fetchStockNews(stock.code, stock.name, stock.market) : []
-  return { stock, summary, quote, indicators, news }
+  return { stock, summary, quote, indicators, recentIndicators, news }
 }
 
 export const portfolioGetAnalysisContextSkill: AgentSkill<Record<string, unknown>, PortfolioAnalysisContext> = {

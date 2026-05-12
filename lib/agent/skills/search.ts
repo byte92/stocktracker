@@ -112,9 +112,9 @@ function normalizeWebSearchRequest(args: WebSearchInput, query: string): Normali
   }
 }
 
-function clampNumber(value: unknown, fallback: number, min: number, max: number) {
-  const parsed = Number(value ?? fallback)
-  if (!Number.isFinite(parsed)) return fallback
+function clampNumber(value: unknown, defaultValue: number, min: number, max: number) {
+  const parsed = Number(value ?? defaultValue)
+  if (!Number.isFinite(parsed)) return defaultValue
   return Math.max(min, Math.min(parsed, max))
 }
 

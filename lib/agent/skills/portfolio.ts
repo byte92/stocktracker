@@ -26,7 +26,7 @@ function summarizeStock(stock: Stock) {
 
 export const portfolioGetSummarySkill: AgentSkill = {
   name: 'portfolio.getSummary',
-  description: '读取当前组合的轻量摘要，包括持仓数量、盈亏结构和交易概览。',
+  description: '读取当前组合的轻量摘要，包括持仓数量、活跃持仓列表、盈亏结构和交易概览。',
   inputSchema: {},
   requiredScopes: ['portfolio.read'],
   async execute(_args, ctx) {
@@ -50,6 +50,20 @@ export const portfolioGetSummarySkill: AgentSkill = {
         profitableCount,
         losingCount,
         totalTradeCount: summaries.reduce((sum, item) => sum + item.tradeCount, 0),
+        holdings: active.map((item) => ({
+          id: item.id,
+          code: item.code,
+          name: item.name,
+          market: item.market,
+          note: item.note,
+          currentHolding: item.currentHolding,
+          avgCostPrice: item.avgCostPrice,
+          estimatedCostValue: Number((item.currentHolding * item.avgCostPrice).toFixed(2)),
+          totalPnl: item.totalPnl,
+          totalPnlPercent: item.totalPnlPercent,
+          lastTradeDate: item.lastTradeDate,
+          lastTradeType: item.lastTradeType,
+        })),
       },
     }
   },

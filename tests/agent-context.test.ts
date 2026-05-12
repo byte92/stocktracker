@@ -47,3 +47,39 @@ test('agent context compresses oversized skill results before sending them to th
   assert.doesNotMatch(context, /TAIL_MARKER/)
   assert.ok(context.length < hugeBody.length)
 })
+
+test('agent context tells answer model not to expose internal skill identifiers', () => {
+  const plan: AgentPlan = {
+    intent: 'portfolio_summary',
+    entities: [{ type: 'portfolio', raw: '当前持仓', confidence: 1 }],
+    requiredSkills: [{ name: 'portfolio.getSummary', args: {}, reason: '读取组合摘要' }],
+    responseMode: 'answer',
+  }
+  const skillResults: AgentSkillResult[] = [{
+    skillName: 'portfolio.getSummary',
+    ok: true,
+    data: {
+      stockCount: 2,
+      activeHoldingCount: 2,
+      totalPnl: 100,
+      holdings: [
+        { code: '601398', name: '工商银行', market: 'A', currentHolding: 1000 },
+      ],
+    },
+  }]
+
+  const result = composeAgentContext({
+    aiConfig: mockAiConfig,
+    history: [],
+    userMessage: '我的持仓里还有银行吗',
+    plan,
+    skillResults,
+  })
+
+  const system = result.messages[0]?.content ?? ''
+  const context = result.messages[1]?.content ?? ''
+
+  assert.match(system, /严禁在面向用户的最终回复中原样提及/)
+  assert.match(system, /根据你的当前持仓数据/)
+  assert.match(context, /最终回复不得出现这些内部标识/)
+})

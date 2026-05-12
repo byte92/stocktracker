@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { describeClientRequestError, readJsonResponse } from '@/lib/api/client'
 import { nextApiUrls } from '@/lib/api/endpoints'
+import { formatProbabilityScenario } from '@/lib/ai/display'
 import { useI18n } from '@/lib/i18n'
 import { useStockStore } from '@/store/useStockStore'
 import type { AiAnalysisResult } from '@/types'
@@ -174,7 +175,7 @@ export default function PortfolioAnalysisCard({ compact = false }: { compact?: b
                 <InfoBlock title={t('事实依据')} items={result.facts.slice(0, compact ? 2 : 4)} />
                 <InfoBlock title={t('核心判断')} items={result.inferences.slice(0, compact ? 2 : 4)} />
                 <InfoBlock title={t('行动建议')} items={result.actionPlan.slice(0, compact ? 2 : 4)} />
-                <InfoBlock title={t('概率分析')} items={result.probabilityAssessment.map((item) => `${item.label} ${item.probability}%：${item.rationale}`)} />
+                <InfoBlock title={t('概率分析')} items={result.probabilityAssessment.map(formatProbabilityScenario)} />
                 <InfoBlock title={t('风险观察')} items={topRisks} emptyText={t('暂无额外风险提示')} />
                 {!compact && <InfoBlock title={t('建议动作')} items={result.actionableObservations} emptyText={t('暂无动作建议')} />}
               </div>

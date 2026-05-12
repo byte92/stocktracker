@@ -62,6 +62,15 @@ function formatInputSchema(inputSchema: Record<string, unknown>) {
   return `{ ${compact} }`
 }
 
+function formatPlannerGuidance(documentation: string | undefined) {
+  const text = documentation
+    ?.replace(/^---[\s\S]*?---\s*/g, '')
+    .replace(/#+\s*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text ? ` guidance ${text.slice(0, 420)}` : ''
+}
+
 export function getPlannerVisibleSkills() {
   return getBuiltinSkills().filter(isPlannerVisibleSkill)
 }
@@ -71,7 +80,7 @@ export function buildPlannerSkillCatalogText() {
     .map((skill) => {
       const publicName = skill.id ?? skill.name
       const actionName = skill.actionName && skill.actionName !== publicName ? ` (action: ${skill.actionName})` : ''
-      return `- ${publicName}${actionName}: ${skill.description} args ${formatInputSchema(skill.inputSchema)}`
+      return `- ${publicName}${actionName}: ${skill.description} args ${formatInputSchema(skill.inputSchema)}${formatPlannerGuidance(skill.documentation)}`
     })
     .join('\n')
 }

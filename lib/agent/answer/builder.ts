@@ -63,6 +63,7 @@ function indicatorSummary(data: Record<string, unknown>) {
     rsi14: indicators.rsi14,
     supportLevel: indicators.supportLevel,
     resistanceLevel: indicators.resistanceLevel,
+    recentIndicators: isRecord(data.recentIndicators) ? data.recentIndicators.summary : null,
     candleCount: data.candleCount,
   }
 }
@@ -215,6 +216,10 @@ export function buildAgentAnswerDraft(plan: AgentPlan, skillResults: AgentSkillR
     addItem(facts, 'RSI14', indicators.rsi14, 'stock.getTechnicalSnapshot')
     addItem(facts, '支撑位', indicators.supportLevel, 'stock.getTechnicalSnapshot')
     addItem(facts, '阻力位', indicators.resistanceLevel, 'stock.getTechnicalSnapshot')
+    const recentIndicators = getData(findResult(skillResults, 'stock.getTechnicalSnapshot'))?.recentIndicators
+    if (isRecord(recentIndicators)) {
+      addItem(facts, '近期技术指标', recentIndicators, 'stock.getTechnicalSnapshot')
+    }
     if (answerType === 'trade_review') {
       addItem(qualityWarnings, '时间口径提醒', '技术指标是当前快照，只能用于事后复盘，不能直接当作交易发生当天的依据。', 'stock.getTechnicalSnapshot')
     }
@@ -242,6 +247,7 @@ export function buildAgentAnswerDraft(plan: AgentPlan, skillResults: AgentSkillR
   if (portfolioSummary) {
     addItem(facts, '组合标的数', portfolioSummary.stockCount, 'portfolio.getSummary')
     addItem(facts, '活跃持仓数', portfolioSummary.activeHoldingCount, 'portfolio.getSummary')
+    addItem(facts, '活跃持仓列表', portfolioSummary.holdings, 'portfolio.getSummary', '用于回答“持仓里是否包含某类标的/某个主题/某个市场”等语义分类问题；分类判断应基于名称、代码、市场和备注，不要编造未提供的行业字段。')
     addItem(calculations, '组合总收益', portfolioSummary.totalPnl, 'portfolio.getSummary')
     addItem(calculations, '组合已实现收益', portfolioSummary.totalRealizedPnl, 'portfolio.getSummary')
     addItem(calculations, '组合未实现收益', portfolioSummary.totalUnrealizedPnl, 'portfolio.getSummary')

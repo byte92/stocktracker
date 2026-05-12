@@ -34,7 +34,29 @@ const stocks = [
   stock('stock-4', '601398', '工商银行'),
 ]
 
+function mockPlannerFetch(plan: unknown, extraFetch?: typeof fetch) {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (input, init) => {
+    if (String(input).includes('/chat/completions')) {
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(plan) } }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    return extraFetch ? extraFetch(input, init) : originalFetch(input, init)
+  }
+  return () => {
+    globalThis.fetch = originalFetch
+  }
+}
+
 test('agent planner uses stock skills for a single-stock question', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '成都银行', code: '601838', name: '成都银行', market: 'A', confidence: 0.95 }],
+    requiredSkills: [],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '成都银行现在走势健康吗',
     stocks,
@@ -50,9 +72,23 @@ test('agent planner uses stock skills for a single-stock question', async () => 
     'stock.getQuote',
     'stock.getTechnicalSnapshot',
   ])
+  } finally {
+    restore()
+  }
 })
 
-test('agent planner fallback adds generic web search for public announcement questions', async () => {
+test('agent planner uses model-planned web search for public announcement questions', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '成都银行', code: '601838', name: '成都银行', market: 'A', confidence: 0.95 }],
+    requiredSkills: [{
+      name: 'web.search',
+      args: { query: '成都银行 601838 最新公告', limit: 5 },
+      reason: '用户询问公告，需要公开来源',
+    }],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '成都银行最近有什么公告？',
     stocks,
@@ -64,7 +100,10 @@ test('agent planner fallback adds generic web search for public announcement que
   assert.equal(plan.intent, 'stock_analysis')
   assert.equal(plan.responseMode, 'answer')
   assert.equal(plan.entities[0]?.stockId, 'stock-1')
-  assert.equal(webSearch?.args.query, '成都银行 601838 成都银行最近有什么公告？')
+  assert.equal(webSearch?.args.query, '成都银行 601838 最新公告')
+  } finally {
+    restore()
+  }
 })
 
 test('agent planner keeps model extracted web search context', async () => {
@@ -158,7 +197,18 @@ test('agent planner uses browser access for explicit URLs and keeps URLs out of 
   }
 })
 
-test('agent planner fallback adds generic web search for stock news questions', async () => {
+test('agent planner uses model-planned web search for stock news questions', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '成都银行', code: '601838', name: '成都银行', market: 'A', confidence: 0.95 }],
+    requiredSkills: [{
+      name: 'web.search',
+      args: { query: '成都银行 601838 今日新闻 利空', limit: 5 },
+      reason: '用户询问今日新闻，需要公开来源',
+    }],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '成都银行今天发生了什么，有利空吗？',
     stocks,
@@ -169,10 +219,23 @@ test('agent planner fallback adds generic web search for stock news questions', 
 
   assert.equal(plan.intent, 'stock_analysis')
   assert.equal(plan.responseMode, 'answer')
-  assert.equal(webSearch?.args.query, '成都银行 601838 成都银行今天发生了什么，有利空吗？')
+  assert.equal(webSearch?.args.query, '成都银行 601838 今日新闻 利空')
+  } finally {
+    restore()
+  }
 })
 
 test('agent planner uses portfolio skills for portfolio risk questions', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'portfolio_risk',
+    entities: [{ type: 'portfolio', raw: '当前组合', confidence: 0.9 }],
+    requiredSkills: [
+      { name: 'portfolio.getSummary', args: {}, reason: '读取组合摘要' },
+      { name: 'portfolio.getTopPositions', args: { limit: 8 }, reason: '读取主要持仓' },
+    ],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '我现在组合最大的风险是什么',
     stocks,
@@ -185,9 +248,19 @@ test('agent planner uses portfolio skills for portfolio risk questions', async (
     'portfolio.getSummary',
     'portfolio.getTopPositions',
   ])
+  } finally {
+    restore()
+  }
 })
 
 test('agent planner keeps recent stock focus for follow-up metric questions', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '成都银行', code: '601838', name: '成都银行', market: 'A', confidence: 0.9 }],
+    requiredSkills: [],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '你看一下我平均收益是多少？',
     stocks,
@@ -223,9 +296,23 @@ test('agent planner keeps recent stock focus for follow-up metric questions', as
     'stock.getQuote',
     'stock.getTechnicalSnapshot',
   ])
+  } finally {
+    restore()
+  }
 })
 
-test('agent planner uses web search fallback for recent focused dividend timing questions', async () => {
+test('agent planner uses model-planned web search for recent focused dividend timing questions', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'trade_review',
+    entities: [{ type: 'stock', raw: '工商银行', code: '601398', name: '工商银行', market: 'A', confidence: 0.9 }],
+    requiredSkills: [{
+      name: 'web.search',
+      args: { query: '工商银行 601398 下一次分红时间', limit: 5 },
+      reason: '用户询问未来分红时间，需要公开来源',
+    }],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '下一次分红时间是什么时候',
     stocks,
@@ -257,10 +344,24 @@ test('agent planner uses web search fallback for recent focused dividend timing 
   assert.equal(plan.intent, 'trade_review')
   assert.equal(plan.responseMode, 'answer')
   assert.equal(plan.entities[0]?.stockId, 'stock-4')
-  assert.equal(webSearch?.args.query, '工商银行 601398 下一次分红时间是什么时候')
+  assert.equal(webSearch?.args.query, '工商银行 601398 下一次分红时间')
+  } finally {
+    restore()
+  }
 })
 
 test('agent planner adds finance calculation for recent focused dividend estimate questions', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '工商银行', code: '601398', name: '工商银行', market: 'A', confidence: 0.9 }],
+    requiredSkills: [{
+      name: 'finance.calculate',
+      args: { type: 'dividend.estimate' },
+      reason: '用户要求估算本次可分现金',
+    }],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '预计这次我能分多少',
     stocks,
@@ -293,6 +394,9 @@ test('agent planner adds finance calculation for recent focused dividend estimat
   assert.equal(plan.responseMode, 'answer')
   assert.equal(plan.entities[0]?.stockId, 'stock-4')
   assert.deepEqual(calculation?.args, { type: 'dividend.estimate', stockId: 'stock-4' })
+  } finally {
+    restore()
+  }
 })
 
 test('agent planner adds web search for A-share market event and policy questions', async () => {
@@ -347,13 +451,17 @@ test('agent planner adds web search for A-share market event and policy question
 })
 
 test('agent planner fetches external ETF data for broad 科创50 ETF questions', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async (input) => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '科创50', confidence: 0.72 }],
+    requiredSkills: [{ name: 'security.resolve', args: { query: '科创50' }, reason: '解析用户提到的 ETF 标的' }],
+    responseMode: 'answer',
+  }, async (input) => {
     if (String(input).includes(encodeURIComponent('科创50'))) {
       return new Response('v_hint="sh~588000~\\u79d1\\u521b50ETF\\u534e\\u590f~kc50etfhx~ETF^sh~588080~\\u79d1\\u521b50ETF\\u6613\\u65b9\\u8fbe~kc50etfyfd~ETF"')
     }
     return new Response('v_hint="N";')
-  }
+  })
 
   let plan
   try {
@@ -363,7 +471,7 @@ test('agent planner fetches external ETF data for broad 科创50 ETF questions',
       aiConfig: mockAiConfig,
     })
   } finally {
-    globalThis.fetch = originalFetch
+    restore()
   }
 
   const externalQuotes = plan.requiredSkills.filter((item) => item.name === 'stock.getExternalQuote')
@@ -375,15 +483,19 @@ test('agent planner fetches external ETF data for broad 科创50 ETF questions',
   assert.deepEqual(technicalSnapshots.map((item) => item.args.symbol), ['588000', '588080'])
 })
 
-test('agent planner prefers a held broad ETF candidate over external variants in fallback planning', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () => new Response('v_hint="sh~510300~\\u6caa\\u6df1300ETF\\u534e\\u6cf0\\u67cf\\u745e~hs300etfhfbr~ETF^sh~510310~\\u6caa\\u6df1300ETF\\u6613\\u65b9\\u8fbe~hs300etfyfd~ETF^sz~159919~\\u6caa\\u6df1300ETF\\u5609\\u5b9e~hs300ETFjs~ETF"')
+test('agent planner prefers a held broad ETF candidate after model-directed security resolution', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'trade_review',
+    entities: [{ type: 'stock', raw: '沪深300', confidence: 0.72 }],
+    requiredSkills: [{ name: 'security.resolve', args: { query: '沪深300' }, reason: '用户使用指数简称，需要解析具体 ETF' }],
+    responseMode: 'answer',
+  }, async () => new Response('v_hint="sh~510300~\\u6caa\\u6df1300ETF\\u534e\\u6cf0\\u67cf\\u745e~hs300etfhfbr~ETF^sh~510310~\\u6caa\\u6df1300ETF\\u6613\\u65b9\\u8fbe~hs300etfyfd~ETF^sz~159919~\\u6caa\\u6df1300ETF\\u5609\\u5b9e~hs300ETFjs~ETF"'))
 
   try {
     const plan = await planAgentResponse({
       userMessage: '看一下，我现在卖出沪深 300 的 1/2，你觉得有问题吗？',
       stocks,
-      aiConfig: { ...mockAiConfig, enabled: false },
+      aiConfig: mockAiConfig,
     })
 
     assert.equal(plan.intent, 'trade_review')
@@ -396,11 +508,11 @@ test('agent planner prefers a held broad ETF candidate over external variants in
       'stock.getTechnicalSnapshot',
     ])
   } finally {
-    globalThis.fetch = originalFetch
+    restore()
   }
 })
 
-test('agent planner prefers a held broad ETF candidate after model-directed security resolution', async () => {
+test('agent planner preserves model intent after resolving a held broad ETF candidate', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = async (input) => {
     if (String(input).includes('/chat/completions')) {
@@ -408,7 +520,7 @@ test('agent planner prefers a held broad ETF candidate after model-directed secu
         choices: [{
           message: {
             content: JSON.stringify({
-              intent: 'stock_analysis',
+              intent: 'trade_review',
               entities: [{ type: 'stock', raw: '沪深300', confidence: 0.72 }],
               requiredSkills: [{
                 name: 'security.resolve',
@@ -446,6 +558,13 @@ test('agent planner prefers a held broad ETF candidate after model-directed secu
 })
 
 test('agent planner fetches external quote for explicit non-holding A-share ETF code', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '588000', code: '588000', name: '588000', market: 'A', confidence: 0.9 }],
+    requiredSkills: [],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '588000 还有上涨空间吗',
     stocks,
@@ -460,9 +579,19 @@ test('agent planner fetches external quote for explicit non-holding A-share ETF 
   ])
   assert.equal(plan.requiredSkills[0]?.args.symbol, '588000')
   assert.equal(plan.requiredSkills[0]?.args.market, 'A')
+  } finally {
+    restore()
+  }
 })
 
 test('agent planner infers US market for explicit non-holding US ticker', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: 'PDD', code: 'PDD', name: 'PDD', market: 'US', confidence: 0.9 }],
+    requiredSkills: [],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: 'PDD 最近怎么样',
     stocks,
@@ -477,9 +606,19 @@ test('agent planner infers US market for explicit non-holding US ticker', async 
   ])
   assert.equal(plan.requiredSkills[0]?.args.symbol, 'PDD')
   assert.equal(plan.requiredSkills[0]?.args.market, 'US')
+  } finally {
+    restore()
+  }
 })
 
 test('agent planner uses market intent before code-shape fallback', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '00700', code: '00700', name: '00700', market: 'US', confidence: 0.9 }],
+    requiredSkills: [],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '美股 00700 看一下',
     stocks,
@@ -490,16 +629,23 @@ test('agent planner uses market intent before code-shape fallback', async () => 
   assert.equal(plan.responseMode, 'answer')
   assert.equal(plan.requiredSkills[0]?.args.symbol, '00700')
   assert.equal(plan.requiredSkills[0]?.args.market, 'US')
+  } finally {
+    restore()
+  }
 })
 
-test('agent planner resolves non-holding A-share names before LLM fallback', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async (input) => {
+test('agent planner resolves non-holding A-share names from model-directed security resolution', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '五粮液', confidence: 0.72 }],
+    requiredSkills: [{ name: 'security.resolve', args: { query: '五粮液' }, reason: '解析标的' }],
+    responseMode: 'answer',
+  }, async (input) => {
     if (String(input).includes(encodeURIComponent('五粮液'))) {
       return new Response('v_hint="sz~000858~\\u4e94\\u7cae\\u6db2~wly~GP-A"')
     }
     return new Response('v_hint="N";')
-  }
+  })
 
   let plan
   try {
@@ -509,7 +655,7 @@ test('agent planner resolves non-holding A-share names before LLM fallback', asy
       aiConfig: mockAiConfig,
     })
   } finally {
-    globalThis.fetch = originalFetch
+    restore()
   }
 
   assert.equal(plan.intent, 'stock_analysis')
@@ -523,14 +669,18 @@ test('agent planner resolves non-holding A-share names before LLM fallback', asy
   assert.equal(plan.requiredSkills[0]?.args.market, 'A')
 })
 
-test('agent planner resolves smartbox candidates before LLM fallback', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async (input) => {
+test('agent planner resolves smartbox candidates from model-directed security resolution', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '高德红外', confidence: 0.72 }],
+    requiredSkills: [{ name: 'security.resolve', args: { query: '高德红外' }, reason: '解析标的' }],
+    responseMode: 'answer',
+  }, async (input) => {
     if (String(input).includes(encodeURIComponent('高德红外'))) {
       return new Response('v_hint="sz~002414~\\u9ad8\\u5fb7\\u7ea2\\u5916~gdhw~GP-A"')
     }
     return new Response('v_hint="N";')
-  }
+  })
 
   try {
     const plan = await planAgentResponse({
@@ -549,11 +699,21 @@ test('agent planner resolves smartbox candidates before LLM fallback', async () 
     assert.equal(plan.requiredSkills[0]?.args.symbol, '002414')
     assert.equal(plan.requiredSkills[0]?.args.market, 'A')
   } finally {
-    globalThis.fetch = originalFetch
+    restore()
   }
 })
 
 test('agent planner keeps recent external ETF candidates for follow-up references', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [
+      { type: 'stock', raw: '华夏科创50ETF', code: '588000', name: '华夏科创50ETF', market: 'A', confidence: 0.85 },
+      { type: 'stock', raw: '易方达科创50ETF', code: '588080', name: '易方达科创50ETF', market: 'A', confidence: 0.85 },
+    ],
+    requiredSkills: [],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '这两只都分析一下',
     stocks,
@@ -574,9 +734,19 @@ test('agent planner keeps recent external ETF candidates for follow-up reference
   assert.equal(plan.intent, 'stock_analysis')
   assert.equal(plan.responseMode, 'answer')
   assert.deepEqual(externalQuotes.map((item) => item.args.symbol), ['588000', '588080'])
+  } finally {
+    restore()
+  }
 })
 
 test('agent planner uses local holding skills for clarified portfolio candidates', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'stock_analysis',
+    entities: [{ type: 'stock', raw: '成都银行', code: '601838', name: '成都银行', market: 'A', confidence: 0.95 }],
+    requiredSkills: [],
+    responseMode: 'answer',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '就看成都银行',
     stocks,
@@ -599,6 +769,9 @@ test('agent planner uses local holding skills for clarified portfolio candidates
     'stock.getQuote',
     'stock.getTechnicalSnapshot',
   ])
+  } finally {
+    restore()
+  }
 })
 
 test('agent planner keeps original intent extras after a clarified candidate is selected', async () => {
@@ -649,6 +822,13 @@ test('agent planner keeps original intent extras after a clarified candidate is 
 })
 
 test('agent planner refuses clearly out-of-scope questions', async () => {
+  const restore = mockPlannerFetch({
+    intent: 'out_of_scope',
+    entities: [],
+    requiredSkills: [],
+    responseMode: 'refuse',
+  })
+  try {
   const plan = await planAgentResponse({
     userMessage: '帮我看看今天成都天气怎么样',
     stocks,
@@ -658,4 +838,18 @@ test('agent planner refuses clearly out-of-scope questions', async () => {
   assert.equal(plan.intent, 'out_of_scope')
   assert.equal(plan.responseMode, 'refuse')
   assert.equal(plan.requiredSkills.length, 0)
+  } finally {
+    restore()
+  }
+})
+
+test('agent planner fails when LLM planning is unavailable instead of using local semantic fallback', async () => {
+  await assert.rejects(
+    () => planAgentResponse({
+      userMessage: '成都银行最近有什么公告？',
+      stocks,
+      aiConfig: mockAiConfig,
+    }),
+    /AI 服务不可用/,
+  )
 })

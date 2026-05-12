@@ -62,6 +62,17 @@ test('answer builder creates quality warnings for trade review context', () => {
           supportLevel: 18.2,
           resistanceLevel: 19.1,
         },
+        recentIndicators: {
+          window: 20,
+          points: [],
+          summary: {
+            closeChangePercent: 3.2,
+            macdHistogramChange: 0.08,
+            rsiChange: 5.4,
+            bullishDays: 12,
+            bearishDays: 0,
+          },
+        },
       },
     },
   ]
@@ -72,6 +83,7 @@ test('answer builder creates quality warnings for trade review context', () => {
   assert.equal(draft.confidence, 'medium')
   assert.ok(draft.facts.some((item) => item.label === '最近交易' && String(item.value).includes('SELL')))
   assert.ok(draft.facts.some((item) => item.label === '交易复盘方法论' && item.source === 'agent.knowledge.tradingMethodology'))
+  assert.ok(draft.facts.some((item) => item.label === '近期技术指标' && item.source === 'stock.getTechnicalSnapshot'))
   assert.ok(draft.calculations.some((item) => item.label === '已实现收益' && item.source === 'stock.getHolding'))
   assert.ok(draft.qualityWarnings.some((item) => item.label === '单笔收益缺口'))
   assert.ok(draft.qualityWarnings.some((item) => item.label === '时间口径提醒'))
@@ -113,6 +125,42 @@ test('answer builder records failed skills as missing data', () => {
 
   assert.equal(draft.confidence, 'medium')
   assert.deepEqual(draft.missingData.map((item) => item.label), ['stock.getQuote'])
+})
+
+test('answer builder exposes active holdings from portfolio summary', () => {
+  const draft = buildAgentAnswerDraft({
+    intent: 'portfolio_summary',
+    entities: [{ type: 'portfolio', raw: '当前持仓', confidence: 1 }],
+    requiredSkills: [],
+    responseMode: 'answer',
+  }, [
+    {
+      skillName: 'portfolio.getSummary',
+      ok: true,
+      data: {
+        stockCount: 4,
+        activeHoldingCount: 2,
+        totalRealizedPnl: 100,
+        totalUnrealizedPnl: 0,
+        totalPnl: 100,
+        totalTradeCount: 8,
+        holdings: [
+          { id: 'stock-1', code: '601398', name: '工商银行', market: 'A', currentHolding: 1000 },
+          { id: 'stock-2', code: '601838', name: '成都银行', market: 'A', currentHolding: 2000 },
+        ],
+      },
+    },
+  ])
+
+  const holdings = draft.facts.find((item) => item.label === '活跃持仓列表')
+
+  assert.equal(draft.answerType, 'portfolio_review')
+  assert.equal(holdings?.source, 'portfolio.getSummary')
+  assert.match(holdings?.note ?? '', /语义分类/)
+  assert.deepEqual(holdings?.value, [
+    { id: 'stock-1', code: '601398', name: '工商银行', market: 'A', currentHolding: 1000 },
+    { id: 'stock-2', code: '601838', name: '成都银行', market: 'A', currentHolding: 2000 },
+  ])
 })
 
 test('answer builder exposes web search sources and searched time', () => {

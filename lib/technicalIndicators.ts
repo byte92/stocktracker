@@ -1,4 +1,4 @@
-import type { TechnicalIndicatorSnapshot } from '@/types'
+import type { TechnicalIndicatorHistory, TechnicalIndicatorHistoryPoint, TechnicalIndicatorSnapshot } from '@/types'
 
 export interface CandlePoint {
   time: number
@@ -191,5 +191,73 @@ export function buildTechnicalIndicatorSnapshot(candles: CandlePoint[]): Technic
     resistanceLevel: round(resistanceLevel),
     volumeRatio20: round(volumeRatio20),
     trendBias: inferTrendBias(close, ma20, macd.histogram, rsi14),
+  }
+}
+
+function calcChangePercent(current: number, previous: number | null | undefined) {
+  if (previous === null || previous === undefined || previous === 0) return null
+  return ((current - previous) / previous) * 100
+}
+
+function buildHistoryPoint(candles: CandlePoint[], index: number): TechnicalIndicatorHistoryPoint | null {
+  const slice = candles.slice(0, index + 1)
+  const snapshot = buildTechnicalIndicatorSnapshot(slice)
+  const candle = candles[index]
+  if (!snapshot || !candle) return null
+  return {
+    date: candle.date,
+    close: snapshot.close,
+    changePercent: round(calcChangePercent(candle.close, candles[index - 1]?.close)),
+    volumeRatio20: snapshot.volumeRatio20,
+    ma5: snapshot.ma5,
+    ma10: snapshot.ma10,
+    ma20: snapshot.ma20,
+    macd: snapshot.macd,
+    rsi14: snapshot.rsi14,
+    trendBias: snapshot.trendBias,
+  }
+}
+
+function latestNumber<T>(points: T[], getter: (point: T) => number | null | undefined) {
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    const value = getter(points[index])
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return null
+}
+
+function earliestNumber<T>(points: T[], getter: (point: T) => number | null | undefined) {
+  for (const point of points) {
+    const value = getter(point)
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return null
+}
+
+export function buildTechnicalIndicatorHistory(candles: CandlePoint[], window = 20): TechnicalIndicatorHistory {
+  const safeWindow = Math.max(1, Math.min(Math.floor(window), 60))
+  const start = Math.max(0, candles.length - safeWindow)
+  const points = candles
+    .slice(start)
+    .map((_, offset) => buildHistoryPoint(candles, start + offset))
+    .filter((point): point is TechnicalIndicatorHistoryPoint => point !== null)
+
+  const firstClose = points[0]?.close
+  const lastClose = points[points.length - 1]?.close
+  const firstMacd = earliestNumber(points, (point) => point.macd.histogram)
+  const lastMacd = latestNumber(points, (point) => point.macd.histogram)
+  const firstRsi = earliestNumber(points, (point) => point.rsi14)
+  const lastRsi = latestNumber(points, (point) => point.rsi14)
+
+  return {
+    window: safeWindow,
+    points,
+    summary: {
+      closeChangePercent: firstClose && lastClose ? round(calcChangePercent(lastClose, firstClose)) : null,
+      macdHistogramChange: firstMacd !== null && lastMacd !== null ? round(lastMacd - firstMacd) : null,
+      rsiChange: firstRsi !== null && lastRsi !== null ? round(lastRsi - firstRsi) : null,
+      bullishDays: points.filter((point) => point.trendBias === 'bullish').length,
+      bearishDays: points.filter((point) => point.trendBias === 'bearish').length,
+    },
   }
 }

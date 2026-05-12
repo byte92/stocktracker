@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { describeClientRequestError, readJsonResponse } from '@/lib/api/client'
 import { nextApiUrls } from '@/lib/api/endpoints'
+import { formatProbabilityScenario } from '@/lib/ai/display'
 import { useI18n } from '@/lib/i18n'
 import { useStockStore } from '@/store/useStockStore'
 import type { AiAnalysisResult } from '@/types'
@@ -141,7 +142,7 @@ export default function MarketAnalysisCard() {
                 <InfoBlock title={t('核心判断')} items={result.inferences} emptyText={t('暂无核心判断')} />
                 <InfoBlock title={t('行动建议')} items={result.actionPlan} emptyText={t('暂无行动建议')} />
                 <InfoBlock title={t('失效信号')} items={result.invalidationSignals} emptyText={t('暂无失效信号')} />
-                <InfoBlock title={t('概率分析')} items={result.probabilityAssessment.map((item) => `${item.label} ${item.probability}%：${item.rationale}`)} />
+                <InfoBlock title={t('概率分析')} items={result.probabilityAssessment.map(formatProbabilityScenario)} />
                 <InfoBlock title={t('技术信号')} items={topSignals.map((item) => `${item.name}：${item.value}，${item.interpretation}`)} emptyText={t('暂无技术信号')} />
                 <InfoBlock title={t('关键价位')} items={result.keyLevels} emptyText={t('暂无关键价位')} />
                 <InfoBlock title={t('观察动作')} items={result.actionableObservations} emptyText={t('暂无动作建议')} />

@@ -1,9 +1,5 @@
 import type { AgentSkillCall } from '@/lib/agent/types'
 
-export function includesAny(content: string, keywords: string[]) {
-  return keywords.some((keyword) => content.includes(keyword))
-}
-
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
   if (value && typeof value === 'object') {

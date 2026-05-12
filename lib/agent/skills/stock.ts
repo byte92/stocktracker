@@ -1,4 +1,4 @@
-import { buildTechnicalIndicatorSnapshot } from '@/lib/technicalIndicators'
+import { buildTechnicalIndicatorHistory, buildTechnicalIndicatorSnapshot } from '@/lib/technicalIndicators'
 import { calcStockSummary } from '@/lib/finance'
 import { stockPriceService } from '@/lib/StockPriceService'
 import { matchStocks } from '@/lib/agent/entity/stockMatcher'
@@ -198,6 +198,7 @@ export const stockGetTechnicalSnapshotSkill: AgentSkill<Record<string, unknown>>
             symbol,
             market,
             indicators: buildTechnicalIndicatorSnapshot(candles),
+            recentIndicators: buildTechnicalIndicatorHistory(candles, 20),
             candleCount: candles.length,
           },
         }
@@ -213,6 +214,7 @@ export const stockGetTechnicalSnapshotSkill: AgentSkill<Record<string, unknown>>
             name: candidate.name,
             market: candidate.market,
             indicators: candles.length ? buildTechnicalIndicatorSnapshot(candles) : null,
+            recentIndicators: candles.length ? buildTechnicalIndicatorHistory(candles, 20) : null,
             candleCount: candles.length,
           }
         }))
@@ -229,6 +231,7 @@ export const stockGetTechnicalSnapshotSkill: AgentSkill<Record<string, unknown>>
       data: {
         stockId: stock.id,
         indicators: buildTechnicalIndicatorSnapshot(candles),
+        recentIndicators: buildTechnicalIndicatorHistory(candles, 20),
         candleCount: candles.length,
       },
     }
