@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useStockStore } from '@/store/useStockStore'
-import { autoCalcFees, calcStockSummary, todayStr } from '@/lib/finance'
+import { autoCalcFees, calcStockSummary, estimateDeferredDividendTax, todayStr } from '@/lib/finance'
 import { CURRENCY_SYMBOLS, MARKET_CURRENCY } from '@/lib/ExchangeRateService'
 import { getMarketMinQuantity, getMarketQuantityStep } from '@/config/defaults'
 import { useI18n } from '@/lib/i18n'
@@ -46,7 +46,6 @@ export default function AddTradeModal({ stockId, stockCode, stockName, market, e
   // 现金收益专用字段（分红、派息、加密资产收益等）
   const [dividendPerShare, setDividendPerShare] = useState('')
   const [dividendShares, setDividendShares] = useState('')
-  const [dividendTax, setDividendTax] = useState('20')
   const [autoFee, setAutoFee] = useState(true)
   const [commission, setCommission] = useState('')
   const [tax, setTax] = useState('')
@@ -69,10 +68,6 @@ export default function AddTradeModal({ stockId, stockCode, stockName, market, e
         // 现金收益：price=每单位收益, quantity=持有数量
         setDividendPerShare(editTrade.price.toString())
         setDividendShares(editTrade.quantity.toString())
-        // 计算税率：tax / (price * quantity)
-        const gross = editTrade.price * editTrade.quantity
-        const taxRate = gross > 0 ? ((editTrade.tax / gross) * 100).toFixed(0) : '20'
-        setDividendTax(taxRate)
       } else {
         // 买入/卖出
         setPrice(editTrade.price.toString())
@@ -96,20 +91,27 @@ export default function AddTradeModal({ stockId, stockCode, stockName, market, e
   const priceNum = parseFloat(price) || 0
   const quantityNum = parseFloat(quantity) || 0
   const totalAmount = priceNum * quantityNum
+  const deferredDividendTax = type === 'SELL' && stockWithoutEditingTrade
+    ? estimateDeferredDividendTax(stockWithoutEditingTrade, date, quantityNum)
+    : 0
 
   // 现金收益计算
   const dividendPerShareNum = parseFloat(dividendPerShare) || 0
   const dividendSharesNum = parseFloat(dividendShares) || 0
-  const parsedDividendTax = Number(dividendTax)
-  const dividendTaxRate = Number.isFinite(parsedDividendTax) ? parsedDividendTax / 100 : 0.2
   const grossDividend = dividendPerShareNum * dividendSharesNum
-  const dividendTaxAmount = grossDividend * dividendTaxRate
+  const dividendTaxAmount = calcDividendTaxAmount(market, grossDividend)
   const netDividend = grossDividend - dividendTaxAmount  // 税后实收
 
   // 买卖手续费计算
   const calcFees = () => {
     if (priceNum > 0 && quantityNum > 0 && (type === 'BUY' || type === 'SELL')) {
-      return autoCalcFees(type, priceNum, quantityNum, market, stockCode, config.feeConfigs[market])
+      const baseFees = autoCalcFees(type, priceNum, quantityNum, market, stockCode, config.feeConfigs[market])
+      if (type !== 'SELL' || deferredDividendTax <= 0) return baseFees
+      return {
+        commission: baseFees.commission,
+        tax: baseFees.tax + deferredDividendTax,
+        netAmount: baseFees.netAmount - deferredDividendTax,
+      }
     }
     return { commission: 0, tax: 0, netAmount: 0 }
   }
@@ -158,11 +160,10 @@ export default function AddTradeModal({ stockId, stockCode, stockName, market, e
       tradeData.tax = dividendTaxAmount
       tradeData.totalAmount = grossDividend
       tradeData.netAmount = netDividend
-      tradeData.note = note || t('每{unit}{incomeLabel}{amount}，税率{rate}%', {
+      tradeData.note = note || t('每{unit}{incomeLabel}{amount}', {
         unit: assetUnit,
         incomeLabel,
         amount: `${currencySymbol}${dividendPerShareNum}`,
-        rate: dividendTax,
       })
     } else {
       if (!price || !quantity || priceNum <= 0 || quantityNum <= 0) {
@@ -177,6 +178,7 @@ export default function AddTradeModal({ stockId, stockCode, stockName, market, e
       tradeData.quantity = quantityNum
       tradeData.commission = fees.commission
       tradeData.tax = fees.tax
+      tradeData.deferredDividendTax = type === 'SELL' && deferredDividendTax > 0 ? deferredDividendTax : undefined
       tradeData.totalAmount = totalAmount
       tradeData.netAmount = fees.netAmount
     }
@@ -318,12 +320,7 @@ export default function AddTradeModal({ stockId, stockCode, stockName, market, e
                     <Input id="dshares" type="number" min={minQuantity} step={quantityStep} placeholder={market === 'CRYPTO' ? '0.01' : '1000'}
                       value={dividendShares} onChange={(e) => setDividendShares(e.target.value)} required />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="dtax">{t('{incomeLabel}税率（%）', { incomeLabel })}</Label>
-                    <Input id="dtax" type="number" step="1" min="0" max="100" placeholder="20"
-                      value={dividendTax} onChange={(e) => setDividendTax(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 col-span-2">
                     <Label>{t('税额（{unit}）', { unit: currencyUnitLabel })}</Label>
                     <div className="h-9 flex items-center px-3 rounded-md border border-border bg-muted text-sm font-mono text-muted-foreground">
                       {currencySymbol}{dividendTaxAmount.toFixed(2)}
@@ -376,6 +373,11 @@ function getCurrencyUnitLabel(currency: keyof typeof CURRENCY_SYMBOLS, t: (key: 
   if (currency === 'HKD') return t('港元')
   if (currency === 'USDT') return 'USDT'
   return t('元')
+}
+
+function calcDividendTaxAmount(market: Market, grossDividend: number) {
+  if (market === 'US') return Math.round(grossDividend * 0.3 * 100) / 100
+  return 0
 }
 
 function formatQuantity(value: number, locale: string) {

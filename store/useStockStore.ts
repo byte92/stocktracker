@@ -111,6 +111,27 @@ function hasStoredData(payload: StoredPayload) {
   );
 }
 
+function cleanDividendTaxNote(note?: string) {
+  if (!note) return note;
+  return note
+    .replace(/[，,]\s*税率\s*\d+(?:\.\d+)?\s*%/g, "")
+    .replace(/[，,]\s*tax\s*\d+(?:\.\d+)?\s*%/gi, "")
+    .replace(/\s*税率\s*\d+(?:\.\d+)?\s*%/g, "")
+    .replace(/\s*tax\s*\d+(?:\.\d+)?\s*%/gi, "")
+    .trim();
+}
+
+function normalizeTradeNotes(stocks: Stock[]) {
+  return stocks.map((stock) => ({
+    ...stock,
+    trades: stock.trades.map((trade) => (
+      trade.type === "DIVIDEND"
+        ? { ...trade, note: cleanDividendTaxNote(trade.note) }
+        : trade
+    )),
+  }));
+}
+
 async function fetchRemote(userId: string): Promise<RemoteStoredPayload> {
   const res = await fetch(nextApiUrls.storage({ userId }), {
     method: "GET",
@@ -153,7 +174,7 @@ async function clearRemoteAiChat(userId: string) {
 }
 
 function sortTrades(stocks: Stock[]) {
-  return stocks.map((stock) => ({
+  return normalizeTradeNotes(stocks).map((stock) => ({
     ...stock,
     trades: [...stock.trades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
   }));
@@ -177,6 +198,8 @@ export const useStockStore = create<StockStore>()((set, get) => ({
       const normalized = sortTrades(nextPayload.stocks);
 
       if (!hasStoredData(sqlitePayload) && hasStoredData(local)) {
+        await persistRemote(userId, normalized, nextPayload.config);
+      } else if (JSON.stringify(normalized) !== JSON.stringify(nextPayload.stocks)) {
         await persistRemote(userId, normalized, nextPayload.config);
       }
 

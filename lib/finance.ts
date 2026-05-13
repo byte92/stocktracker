@@ -20,17 +20,21 @@ type MainlandFeeProfile = "A_STOCK" | "A_ETF_OR_FUND";
 
 type CostLot = {
   tradeId: string;
+  acquiredDate: string;
   price: number;
   quantity: number;
+  dividendGrossPerShare: number;
 };
 
 type MatchSellInput = {
   quantity: number;
   costQueue: CostLot[];
+  sellDate?: string;
 };
 
 type MatchSellResult = {
   costBasis: number;
+  deferredDividendTax: number;
 };
 
 const QUANTITY_EPSILON = 1e-12;
@@ -39,12 +43,44 @@ function normalizeQuantity(value: number) {
   return Math.abs(value) < QUANTITY_EPSILON ? 0 : value;
 }
 
-function matchSellLots({ quantity, costQueue }: MatchSellInput): MatchSellResult {
+function addCalendarMonths(date: Date, months: number) {
+  const result = new Date(date);
+  const originalDay = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(originalDay, lastDay));
+  return result;
+}
+
+function dividendTaxRateByHoldingPeriod(acquiredDate: string, sellDate: string) {
+  const acquired = new Date(`${acquiredDate}T00:00:00`);
+  const sold = new Date(`${sellDate}T00:00:00`);
+  if (Number.isNaN(acquired.getTime()) || Number.isNaN(sold.getTime())) return 0;
+
+  if (sold <= addCalendarMonths(acquired, 1)) return 0.2;
+  if (sold <= addCalendarMonths(acquired, 12)) return 0.1;
+  return 0;
+}
+
+function matchSellLots({ quantity, costQueue, sellDate }: MatchSellInput): MatchSellResult {
   let remaining = quantity;
   let costBasis = 0;
+  let deferredDividendTax = 0;
 
   while (remaining > QUANTITY_EPSILON && costQueue.length > 0) {
     const lot = costQueue[0];
+    const matchedQuantity = Math.min(lot.quantity, remaining);
+
+    if (sellDate && lot.dividendGrossPerShare > 0) {
+      deferredDividendTax = add(
+        deferredDividendTax,
+        mul(
+          mul(lot.dividendGrossPerShare, matchedQuantity),
+          dividendTaxRateByHoldingPeriod(lot.acquiredDate, sellDate),
+        ),
+      );
+    }
 
     if (lot.quantity <= remaining + QUANTITY_EPSILON) {
       costBasis = add(costBasis, mul(lot.price, lot.quantity));
@@ -57,7 +93,7 @@ function matchSellLots({ quantity, costQueue }: MatchSellInput): MatchSellResult
     }
   }
 
-  return { costBasis };
+  return { costBasis, deferredDividendTax: roundMoney(deferredDividendTax) };
 }
 
 function getCostQueueQuantity(costQueue: CostLot[]) {
@@ -68,18 +104,41 @@ function getCostQueueCost(costQueue: CostLot[]) {
   return costQueue.reduce((sum, item) => add(sum, mul(item.price, item.quantity)), 0);
 }
 
-function applyDividendToCostQueue(dividendAmount: number, costQueue: CostLot[]) {
+function applyDividendToCostQueue(dividendAmount: number, dividendQuantity: number, costQueue: CostLot[], taxableAtSell: boolean) {
   const currentQuantity = getCostQueueQuantity(costQueue);
   const currentCost = getCostQueueCost(costQueue);
-  if (dividendAmount <= 0 || currentQuantity <= QUANTITY_EPSILON || currentCost <= 0) {
+  const eligibleQuantity = Math.min(dividendQuantity, currentQuantity);
+  if (dividendAmount <= 0 || eligibleQuantity <= QUANTITY_EPSILON || currentCost <= 0) {
     return { appliedAmount: 0, excessAmount: dividendAmount };
   }
 
   const appliedAmount = Math.min(dividendAmount, currentCost);
-  const perShareReduction = calcPerShareCost(appliedAmount, currentQuantity);
+  const perShareReduction = calcPerShareCost(appliedAmount, eligibleQuantity);
+  const grossDividendPerShare = calcPerShareCost(dividendAmount, eligibleQuantity);
+  let remainingQuantity = eligibleQuantity;
 
-  for (const lot of costQueue) {
+  for (let index = 0; index < costQueue.length && remainingQuantity > QUANTITY_EPSILON; index++) {
+    const lot = costQueue[index];
+    const appliedQuantity = Math.min(lot.quantity, remainingQuantity);
+    if (appliedQuantity < lot.quantity - QUANTITY_EPSILON) {
+      const eligibleLot: CostLot = { ...lot, quantity: appliedQuantity };
+      const untouchedLot: CostLot = {
+        ...lot,
+        quantity: normalizeQuantity(sub(lot.quantity, appliedQuantity)),
+      };
+      costQueue.splice(index, 1, eligibleLot, untouchedLot);
+      eligibleLot.price = Math.max(0, sub(eligibleLot.price, perShareReduction));
+      if (taxableAtSell) {
+        eligibleLot.dividendGrossPerShare = add(eligibleLot.dividendGrossPerShare, grossDividendPerShare);
+      }
+      remainingQuantity = normalizeQuantity(sub(remainingQuantity, appliedQuantity));
+      continue;
+    }
     lot.price = Math.max(0, sub(lot.price, perShareReduction));
+    if (taxableAtSell) {
+      lot.dividendGrossPerShare = add(lot.dividendGrossPerShare, grossDividendPerShare);
+    }
+    remainingQuantity = normalizeQuantity(sub(remainingQuantity, appliedQuantity));
   }
 
   return {
@@ -101,6 +160,17 @@ function getMainlandFeeProfile(
   return etfPrefixes.some((prefix) => normalized.startsWith(prefix))
     ? "A_ETF_OR_FUND"
     : "A_STOCK";
+}
+
+function isMainlandTaxableStock(stock: Pick<Stock, "market" | "code">) {
+  return getMainlandFeeProfile(stock.market, stock.code) === "A_STOCK";
+}
+
+function dividendCashAmountForSummary(stock: Stock, trade: Trade) {
+  if (isMainlandTaxableStock(stock)) {
+    return trade.totalAmount > 0 ? trade.totalAmount : trade.netAmount;
+  }
+  return trade.netAmount;
 }
 
 function calcBuyCharges(
@@ -207,6 +277,38 @@ export function autoCalcFees(
   }
 }
 
+export function estimateDeferredDividendTax(
+  stock: Stock,
+  sellDate: string,
+  sellQuantity: number,
+): number {
+  if (!isMainlandTaxableStock(stock) || sellQuantity <= 0) return 0;
+
+  const costQueue: CostLot[] = [];
+  const trades = [...stock.trades]
+    .filter((trade) => trade.date < sellDate)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  for (const trade of trades) {
+    if (trade.type === "BUY") {
+      costQueue.push({
+        tradeId: trade.id,
+        acquiredDate: trade.date,
+        price: calcPerShareCost(trade.netAmount, trade.quantity),
+        quantity: trade.quantity,
+        dividendGrossPerShare: 0,
+      });
+    } else if (trade.type === "SELL") {
+      matchSellLots({ quantity: trade.quantity, costQueue, sellDate: trade.date });
+    } else if (trade.type === "DIVIDEND") {
+      const dividendAmount = dividendCashAmountForSummary(stock, trade);
+      applyDividendToCostQueue(dividendAmount, trade.quantity, costQueue, true);
+    }
+  }
+
+  return matchSellLots({ quantity: sellQuantity, costQueue, sellDate }).deferredDividendTax;
+}
+
 // 计算单个标的整体盈亏摘要（卖出明细按 FIFO 匹配成本批次）
 // 支持：BUY / SELL / DIVIDEND
 export function calcStockSummary(
@@ -240,8 +342,10 @@ export function calcStockSummary(
       displayCostBasis = add(displayCostBasis, trade.netAmount);
       costQueue.push({
         tradeId: trade.id,
+        acquiredDate: trade.date,
         price: calcPerShareCost(trade.netAmount, trade.quantity),
         quantity: trade.quantity,
+        dividendGrossPerShare: 0,
       });
 
       tradePnlDetails.push({
@@ -256,19 +360,23 @@ export function calcStockSummary(
       });
     } else if (trade.type === "SELL") {
       tradeCount++;
-      totalCommission = add(totalCommission, add(trade.commission, trade.tax));
-      totalSellAmount = add(totalSellAmount, trade.netAmount);
-
-      const { costBasis } = matchSellLots({
+      const { costBasis, deferredDividendTax } = matchSellLots({
         quantity: trade.quantity,
         costQueue,
+        sellDate: trade.date,
       });
+      const effectiveDeferredDividendTax = trade.deferredDividendTax ?? deferredDividendTax;
+      const effectiveNetAmount = trade.deferredDividendTax === undefined && effectiveDeferredDividendTax > 0
+        ? sub(trade.netAmount, effectiveDeferredDividendTax)
+        : trade.netAmount;
+      totalCommission = add(totalCommission, add(trade.commission, add(trade.tax, trade.deferredDividendTax === undefined ? effectiveDeferredDividendTax : 0)));
+      totalSellAmount = add(totalSellAmount, effectiveNetAmount);
 
-      const pnl = calcPnl(trade.netAmount, costBasis);
+      const pnl = calcPnl(effectiveNetAmount, costBasis);
       const pnlPercent = calcPnlPercent(pnl, costBasis);
       realizedPnl = add(realizedPnl, pnl);
       currentHolding = normalizeQuantity(sub(currentHolding, trade.quantity));
-      displayCostBasis = sub(displayCostBasis, trade.netAmount);
+      displayCostBasis = sub(displayCostBasis, effectiveNetAmount);
       if (currentHolding <= QUANTITY_EPSILON) {
         displayCostBasis = 0;
         embeddedRealizedPnl = 0;
@@ -283,13 +391,18 @@ export function calcStockSummary(
         pnl,
         pnlPercent,
         costBasis,
-        proceeds: trade.netAmount,
+        proceeds: effectiveNetAmount,
         holdingAfterTrade: currentHolding,
       });
     } else if (trade.type === "DIVIDEND") {
-      const dividendAmount = trade.netAmount;
+      const dividendAmount = dividendCashAmountForSummary(stock, trade);
       totalDividend = add(totalDividend, dividendAmount);
-      const { excessAmount } = applyDividendToCostQueue(dividendAmount, costQueue);
+      const { excessAmount } = applyDividendToCostQueue(
+        dividendAmount,
+        trade.quantity,
+        costQueue,
+        isMainlandTaxableStock(stock),
+      );
       realizedPnl = add(realizedPnl, excessAmount);
       if (currentHolding > QUANTITY_EPSILON) {
         displayCostBasis = sub(displayCostBasis, dividendAmount);

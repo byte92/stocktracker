@@ -1,7 +1,7 @@
 import { DEFAULT_FEE_CONFIGS, parseMarket } from '@/config/defaults'
 import { matchStocks } from '@/lib/agent/entity/stockMatcher'
 import { resolveSecurityCandidates } from '@/lib/agent/entity/securityResolver'
-import { autoCalcFees, calcStockSummary, generateId } from '@/lib/finance'
+import { autoCalcFees, calcStockSummary, estimateDeferredDividendTax, generateId } from '@/lib/finance'
 import { getPortfolioByUserId, savePortfolioByUserId } from '@/lib/sqlite/db'
 import type { AgentSkill } from '@/lib/agent/types'
 import type { AppConfig, Market, Stock, Trade, TradeType } from '@/types'
@@ -17,6 +17,7 @@ export type TradeRecordDraft = {
   quantity: number
   commission: number
   tax: number
+  deferredDividendTax?: number
   totalAmount: number
   netAmount: number
   note?: string
@@ -242,9 +243,19 @@ export const tradePrepareRecordSkill: AgentSkill<PrepareTradeRecordInput> = {
     }
 
     const totalAmount = roundMoney(finalPrice * finalQuantity)
-    const fees = finalType === 'BUY' || finalType === 'SELL'
+    const baseFees = finalType === 'BUY' || finalType === 'SELL'
       ? autoCalcFees(finalType, finalPrice, finalQuantity, market, selected.code, feeConfig)
       : { commission: 0, tax: 0, netAmount: totalAmount }
+    const deferredDividendTax = finalType === 'SELL' && heldStock
+      ? estimateDeferredDividendTax(heldStock, date, finalQuantity)
+      : 0
+    const fees = finalType === 'SELL' && deferredDividendTax > 0
+      ? {
+          commission: baseFees.commission,
+          tax: roundMoney(baseFees.tax + deferredDividendTax),
+          netAmount: roundMoney(baseFees.netAmount - deferredDividendTax),
+        }
+      : baseFees
 
     const draft: TradeRecordDraft = {
       type: finalType,
@@ -257,6 +268,7 @@ export const tradePrepareRecordSkill: AgentSkill<PrepareTradeRecordInput> = {
       quantity: finalQuantity,
       commission: fees.commission,
       tax: fees.tax,
+      deferredDividendTax: deferredDividendTax > 0 ? deferredDividendTax : undefined,
       totalAmount,
       netAmount: finalType === 'DIVIDEND' ? totalAmount : fees.netAmount,
       sourceText: text,
