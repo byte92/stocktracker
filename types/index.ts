@@ -16,6 +16,7 @@ export interface Trade {
   quantity: number      // 成交数量（现金收益时为持有数量）
   commission: number    // 手续费（元）
   tax: number           // 税费合计（如印花税、过户费、结算费）
+  deferredDividendTax?: number // A股分红递延到卖出时补扣的个人所得税
   totalAmount: number   // 总金额（price * quantity，不含费用）
   netAmount: number     // 实际金额（买入含费用，卖出/现金收益扣费用）
   note?: string

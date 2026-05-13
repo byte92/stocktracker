@@ -152,7 +152,6 @@ export const enMessages: Record<string, string> = {
   '当前可记录数量：{quantity} {unit}': 'Available quantity: {quantity} {unit}',
   '每{unit}{incomeLabel}（{currencyUnit}）': '{incomeLabel} per {unit} ({currencyUnit})',
   '持有数量（{unit}）': 'Holding Quantity ({unit})',
-  '{incomeLabel}税率（%）': '{incomeLabel} Tax Rate (%)',
   '税额（{unit}）': 'Tax ({unit})',
   '税前{incomeLabel}': 'Gross {incomeLabel}',
   '税后实收': 'Net received',
@@ -168,7 +167,7 @@ export const enMessages: Record<string, string> = {
   '{incomeLabel}数量不能超过当前持仓 {quantity} {unit}': '{incomeLabel} quantity cannot exceed current holding {quantity} {unit}',
   '请填写有效的价格和数量': 'Enter a valid price and quantity',
   '当前最多可卖出 {quantity} {unit}，请先检查持仓或交易顺序': 'You can sell at most {quantity} {unit}. Check holdings or trade order first.',
-  '每{unit}{incomeLabel}{amount}，税率{rate}%': '{incomeLabel} {amount} per {unit}, tax {rate}%',
+  '每{unit}{incomeLabel}{amount}': '{incomeLabel} {amount} per {unit}',
 
   '编辑资产': 'Edit Asset',
   '市场': 'Market',
