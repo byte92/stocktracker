@@ -48,6 +48,7 @@ export default function AiChatPanel({ mode, onClose }: AiChatPanelProps) {
   const [titleDraft, setTitleDraft] = useState('')
   const [showTraceLink, setShowTraceLink] = useState(false)
   const messagesRef = useRef<HTMLDivElement | null>(null)
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const composingRef = useRef(false)
 
@@ -134,6 +135,13 @@ export default function AiChatPanel({ mode, onClose }: AiChatPanelProps) {
     })
   }, [messages, loading])
 
+  const focusInput = useCallback(() => {
+    if (!aiReady) return
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+    })
+  }, [aiReady])
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Alt') setShowTraceLink(true)
@@ -179,6 +187,7 @@ export default function AiChatPanel({ mode, onClose }: AiChatPanelProps) {
     setInput('')
     setLoading(true)
     setStreamStatus('')
+    focusInput()
     const abortController = new AbortController()
     abortControllerRef.current = abortController
 
@@ -301,6 +310,7 @@ export default function AiChatPanel({ mode, onClose }: AiChatPanelProps) {
       }
       setLoading(false)
       setStreamStatus('')
+      focusInput()
     }
   }
 
@@ -581,8 +591,9 @@ export default function AiChatPanel({ mode, onClose }: AiChatPanelProps) {
         <footer className="mt-auto shrink-0 border-t border-border p-3">
           <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/40 px-3 py-2 transition-colors focus-within:border-primary/40 focus-within:bg-secondary/60">
             <textarea
+              ref={inputRef}
               value={input}
-              disabled={!aiReady || loading}
+              disabled={!aiReady}
               rows={mode === 'full' ? 2 : 1}
               placeholder={aiReady ? t('输入与标的、持仓或交易相关的问题...') : t('请先配置 AI')}
               onChange={(event) => setInput(event.target.value)}
