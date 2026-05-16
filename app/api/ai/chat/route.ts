@@ -60,6 +60,7 @@ function formatTradeDraft(draft: TradeRecordDraft) {
   return [
     '我整理出的待录入数据如下，请核对：',
     '',
+    draft.willCreateStock ? '- 持仓处理：该标的当前未在持仓中，确认后会先创建持仓，再录入本笔记录。' : '',
     `- 类型：${tradeTypeLabel(draft.type)}`,
     `- 标的：${draft.name}（${draft.code}，${draft.market}）`,
     `- 日期：${draft.date}`,
@@ -78,8 +79,9 @@ function formatTradeDraft(draft: TradeRecordDraft) {
 function formatTradeRecorded(data: Record<string, unknown>) {
   const stock = isRecord(data.stock) ? data.stock : {}
   const trade = isRecord(data.trade) ? data.trade : {}
+  const stockCreated = data.stockCreated === true
   return [
-    '已录入数据库。',
+    stockCreated ? '已新建持仓并录入数据库。' : '已录入数据库。',
     '',
     `- 标的：${stock.name ?? ''}（${stock.code ?? ''}，${stock.market ?? ''}）`,
     `- 类型：${tradeTypeLabel(String(trade.type) as TradeRecordDraft['type'])}`,
@@ -88,6 +90,20 @@ function formatTradeRecorded(data: Record<string, unknown>) {
     `- 单价/单位到账：${trade.price ?? ''}`,
     `- 净额：${trade.netAmount ?? ''}`,
   ].join('\n')
+}
+
+function formatTradeMissing(data: Record<string, unknown>) {
+  const missing = Array.isArray(data.missing) ? data.missing.join('、') : '关键信息'
+  const candidates = Array.isArray(data.candidates) ? data.candidates.filter(isRecord) : []
+  const candidateLines = candidates.map((candidate, index) => (
+    `${index + 1}. ${candidate.name ?? candidate.code ?? ''}（${candidate.code ?? ''}，${candidate.market ?? ''}）`
+  ))
+  return [
+    `还需要补充：${missing}。`,
+    candidateLines.length ? '' : '',
+    candidateLines.length ? '候选标的：' : '',
+    ...candidateLines,
+  ].filter(Boolean).join('\n')
 }
 
 async function handlePOST(request: Request) {
@@ -489,6 +505,7 @@ async function handlePOST(request: Request) {
         }
 
         const tradePrepareResult = agent.skillResults.find((r) => r.skillName === 'trade.prepareRecord')
+        let deterministicTradeAnswer: string | null = null
         if (tradePrepareResult?.ok && isRecord(tradePrepareResult.data)) {
           const draft = normalizeTradeRecordDraft(tradePrepareResult.data.draft)
           if (tradePrepareResult.data.status === 'pending_confirmation' && draft) {
@@ -496,6 +513,9 @@ async function handlePOST(request: Request) {
               type: 'trade_record_confirmation',
               draft,
             })
+            deterministicTradeAnswer = formatTradeDraft(draft)
+          } else if (tradePrepareResult.data.status === 'needs_more_info') {
+            deterministicTradeAnswer = formatTradeMissing(tradePrepareResult.data)
           }
         }
 
@@ -515,6 +535,25 @@ async function handlePOST(request: Request) {
           },
         })}\n\n`))
         controller.enqueue(encoder.encode(`event: status\ndata: ${JSON.stringify({ phase: 'generating' })}\n\n`))
+
+        if (deterministicTradeAnswer) {
+          firstTokenMs = Date.now() - startedAt
+          assistantContent = deterministicTradeAnswer
+          saveAiChatMessage({
+            id: randomUUID(),
+            sessionId,
+            userId: body.userId!,
+            role: 'assistant',
+            content: assistantContent,
+            contextSnapshot: agent.contextSnapshot,
+            tokenEstimate: estimateTokens(assistantContent),
+          })
+          const totalMs = Date.now() - startedAt
+          controller.enqueue(encoder.encode(`event: token\ndata: ${JSON.stringify({ token: assistantContent })}\n\n`))
+          controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({ sessionId, runId: agentRunId, timings: { contextMs, firstTokenMs, totalMs } })}\n\n`))
+          controller.close()
+          return
+        }
 
         await streamChatCompletion(effectiveAiConfig, agent.messages, (chunk) => {
           if (firstTokenMs === null) {
