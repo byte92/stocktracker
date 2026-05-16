@@ -34,16 +34,9 @@ It helps you record trades, calculate real cost basis, track market data and ret
 
 ## Why StockTracker 💡
 
-Many investment tools are good at showing prices, but struggle to answer questions that matter for personal decision-making:
+Most investment tools show prices, but do not answer the specific questions that matter for personal portfolio accounting: what is the real cost basis, and how do fees and dividends factor in.
 
-- What is my real cost basis for this stock?
-- After dividends, fees, and sold lots, how should my return be calculated?
-- Should today's P/L move on a market-closed day?
-- Where is the biggest risk in my current portfolio?
-- Which holdings are dragging returns, and which are worth monitoring?
-- Can AI analyze my actual trade records instead of giving generic commentary?
-
-StockTracker brings trade records, return calculation, market data, and AI analysis into an interpretable, auditable, self-hostable local workstation.
+StockTracker is built around getting those numbers right: FIFO-based sell P/L with broker-style diluted cost basis including fees; an AI Agent that reads your actual holdings, lots, and trade history instead of giving generic commentary. Data is stored locally in SQLite by default, with no account required and no cloud upload.
 
 ## Who It Is For 🎯
 
@@ -71,7 +64,6 @@ StockTracker is not designed for:
 - Buy, sell, dividend, and crypto income records.
 - Fixed FIFO-based sell P/L details, with broker-style diluted cost basis for current holding cost, unrealized P/L, and total P/L.
 - Market-specific automatic fee calculation with user-configurable rates.
-- Daily P/L only uses valid same-trading-day quotes, so closed markets or stale quotes are not counted as today's movement.
 
 ### Market Data and Charts 📈
 
@@ -157,23 +149,6 @@ For custom host ports, copy `docker/.env.example` to `docker/.env` and set `HOST
 
 SQLite data is stored in a Docker volume by default, so it persists across container restarts. For more details, see the [Docker Deployment Guide](./docker/README.md).
 
-## Local-first and Privacy Boundary 🔒
-
-StockTracker stores trades, configuration, AI history, and Agent Trace records in a local SQLite file by default:
-
-```text
-data/finance.sqlite
-```
-
-The project currently has no cloud account system and does not upload your trade records by default. AI API keys should be placed in `.env.local`, read server-side, and excluded from JSON backups.
-
-Things to note:
-
-- Data does not sync automatically when you switch machines.
-- If you delete the local database, the project cannot recover it from the cloud.
-- Regular JSON export backups are recommended.
-- AI analysis sends necessary holding context to your configured model provider.
-
 ## AI Agent 🤖
 
 StockTracker's AI is not a generic chatbot. It is an investment research Agent built around your personal holdings and stock data.
@@ -189,8 +164,6 @@ User question
 ```
 
 When users ask about stock news, announcements, bullish/bearish events, or today's A-share policies and market events, the Agent can call public web search on demand. Search results enter the answer context with title, URL, summary, and searched time.
-
-The app UI language can be switched at the bottom of the sidebar. AI analysis output language is still controlled separately by the Analysis Language setting.
 
 ## Tech Stack 🧱
 
@@ -228,64 +201,19 @@ flowchart TB
   Docker --> SQLite
 ```
 
-## Project Structure
-
-```text
-app/          Next.js App Router pages and API Routes
-components/   React components and business UI
-config/       Default configuration
-docs/         Architecture, API, and maintenance documentation
-hooks/        React hooks
-lib/          Domain logic, data sources, AI/Agent, SQLite, i18n, logging
-skills/       Agent Skill Markdown descriptions
-store/        Zustand state management
-tests/        Unit tests and external API smoke tests
-types/        Shared types
-docker/       Dockerfile, Compose, and deployment docs
-```
-
-For detailed boundaries, see [Project Structure](./docs/PROJECT_STRUCTURE.md).
-
 ## Documentation 📚
 
 - [Development Guide](./docs/DEVELOPMENT.md)
 - [Docker Deployment Guide](./docker/README.md)
 - [Project Structure](./docs/PROJECT_STRUCTURE.md)
-- [Internationalization](./docs/I18N.md)
-- [Data API Inventory](./docs/DATA_API_INVENTORY.md)
 - [Agent Architecture](./docs/AGENT_ARCHITECTURE.md)
-- [Skill Standard](./docs/SKILL_STANDARD.md)
-- [AI Chat Requirements](./docs/AI_CHAT_REQUIREMENTS.md)
 - [Price Fetching](./docs/PRICE_FETCHING.md)
-- [Open Source Checklist](./docs/OPEN_SOURCE_CHECKLIST.md)
 
 ## Contributing 🤝
 
 Issues, documentation improvements, test coverage, UI enhancements, data-source fixes, Skill extensions, and Agent Runtime improvements are all welcome.
 
 Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before submitting a PR.
-
-Common verification commands:
-
-```bash
-pnpm test
-pnpm build
-```
-
-Real external API checks:
-
-```bash
-pnpm test:external
-```
-
-## Roadmap 🗺️
-
-- Clearer Agent Skill plugin loading mechanism.
-- Stronger portfolio risk attribution and trade review capabilities.
-- More complete data-source health checks and governance.
-- More robust AI Trace, context management, and diagnostic export.
-- Docker Hub image publishing and smoother one-click deployment.
-- Better open-source collaboration standards, screenshots, demos, and sample data.
 
 ## Disclaimer ⚠️
 

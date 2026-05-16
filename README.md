@@ -34,16 +34,9 @@ StockTracker 是一个本地优先的个人投资记录、组合核算和 AI 投
 
 ## 为什么做它 💡
 
-很多投资工具擅长展示价格，却不擅长回答这些真正贴近个人决策的问题：
+大多数投资工具擅长展示价格，但不回答持仓核算的具体问题：真实成本是多少、手续费和分红怎么算进去。
 
-- 我这只股票真实成本是多少？
-- 分红、手续费、卖出批次之后，收益到底怎么算？
-- 今天是休市日时，今日盈亏是否还应该变化？
-- 当前组合最大的风险来自哪里？
-- 哪些持仓正在拖累收益，哪些持仓值得继续观察？
-- 我能不能让 AI 基于自己的真实交易记录，而不是泛泛而谈地分析？
-
-StockTracker 的目标是把交易记录、收益计算、行情数据和 AI 分析收在一个可解释、可审计、可自部署的本地工作台里。
+StockTracker 的重点是把这些问题算清楚：基于 FIFO 核算每笔卖出的真实盈亏，持仓成本含手续费摊薄；AI Agent 按需读取你的真实持仓批次和交易记录做分析，而不是泛泛聊股票。数据默认存在本机 SQLite，不需要账号，不上传到云端。
 
 ## 适合与不适合 🎯
 
@@ -71,7 +64,6 @@ StockTracker 不适合：
 - 支持买入、卖出、分红和加密资产收益记录。
 - 固定基于 FIFO 计算卖出盈亏明细，并按券商摊薄口径计算当前持仓成本、浮动盈亏和总盈亏。
 - 按市场自动计算手续费，支持用户配置费率。
-- 今日盈亏只统计有效交易日行情，休市或旧行情不会被误算成今日变化。
 
 ### 行情、估值与图表 📈
 
@@ -158,23 +150,6 @@ docker compose up -d --build
 
 容器默认把 SQLite 数据保存在 `docker/data/finance.sqlite` 中，重启不会丢失。更多说明见 [Docker 部署指南](./docker/README.md)。
 
-## 本地优先与隐私边界 🔒
-
-StockTracker 默认把交易、配置、AI 历史和 Agent Trace 保存在本机 SQLite 文件中：
-
-```text
-data/finance.sqlite
-```
-
-项目当前不提供云端账号体系，不默认上传你的交易记录。AI API Key 推荐放在 `.env.local`，服务端读取，不写入 JSON 备份。
-
-需要注意：
-
-- 如果你更换机器，数据不会自动同步。
-- 如果你删除本地数据库，项目无法从云端恢复。
-- 建议定期使用 JSON 导出功能进行备份。
-- AI 分析会把必要的持仓上下文发送给你配置的模型服务商。
-
 ## AI Agent 🤖
 
 StockTracker 的 AI 不是通用聊天机器人，而是围绕个人持仓和股票数据工作的投研 Agent。
@@ -190,8 +165,6 @@ StockTracker 的 AI 不是通用聊天机器人，而是围绕个人持仓和股
 ```
 
 当用户询问个股新闻、公告、利好利空，或 A 股大盘今日政策、盘面新闻时，Agent 会按需调用公开网页搜索。搜索结果会作为带标题、链接、摘要和搜索时间的候选来源进入回答上下文。
-
-应用 UI 语言可在侧边栏底部切换；AI 分析输出语言仍由设置页中的“分析语言”控制，两者相互独立。
 
 ## 技术栈 🧱
 
@@ -229,65 +202,19 @@ flowchart TB
   Docker --> SQLite
 ```
 
-## 项目结构
-
-```text
-app/          Next.js App Router 页面和 API Route
-components/   React 组件和业务 UI
-config/       默认配置
-docs/         架构、接口和维护文档
-hooks/        React hooks
-lib/          领域逻辑、数据源、AI/Agent、SQLite、i18n、日志
-skills/       Agent Skill Markdown 描述
-store/        Zustand 状态管理
-tests/        单元测试和外部接口 smoke test
-types/        共享类型
-docker/       Dockerfile、Compose 和部署说明
-```
-
-详细边界见 [项目目录结构说明](./docs/PROJECT_STRUCTURE.md)。
-
 ## 文档 📚
 
 - [开发指南](./docs/DEVELOPMENT.md)
 - [Docker 部署指南](./docker/README.md)
 - [项目目录结构](./docs/PROJECT_STRUCTURE.md)
-- [国际化说明](./docs/I18N.md)
-- [数据接口清单](./docs/DATA_API_INVENTORY.md)
 - [Agent 架构设计](./docs/AGENT_ARCHITECTURE.md)
-- [Skill 标准](./docs/SKILL_STANDARD.md)
-- [交易纪律模型](./docs/TRADING_DISCIPLINE.md)
-- [AI 对话需求](./docs/AI_CHAT_REQUIREMENTS.md)
 - [行情获取说明](./docs/PRICE_FETCHING.md)
-- [开源发布检查清单](./docs/OPEN_SOURCE_CHECKLIST.md)
 
 ## 参与贡献 🤝
 
 欢迎提交 Issue、改进文档、补充测试、优化 UI、修复行情源、扩展 Skill 或完善 Agent Runtime。
 
-在提交 PR 前请阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
-
-常用验证命令：
-
-```bash
-pnpm test
-pnpm build
-```
-
-真实外部接口检查：
-
-```bash
-pnpm test:external
-```
-
-## 路线方向 🗺️
-
-- 更清晰的 Agent Skill 插件化加载机制。
-- 更强的组合风险归因和交易复盘能力。
-- 更完整的行情源健康检查与数据源治理。
-- 更稳健的 AI Trace、上下文管理和诊断导出。
-- Docker Hub 镜像发布与更顺滑的一键部署体验。
-- 更完善的开源协作规范、截图、演示和示例数据。
+提交 PR 前请阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ## 免责声明 ⚠️
 
