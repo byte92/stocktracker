@@ -159,7 +159,7 @@ export default function StockAnalysisPanel({ stock }: { stock: Stock }) {
               <Block title={t('风险提示')} items={result.risks} />
             </div>
 
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-200">
               <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />
               {result.disclaimer}
             </div>
@@ -180,8 +180,8 @@ function SnapshotAgeBadge({ generatedAt, now }: { generatedAt: string; now: numb
   return (
     <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium normal-case tracking-normal ${
       stale
-        ? 'border-amber-500/30 bg-amber-500/15 text-amber-100'
-        : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-100'
+        ? 'border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-200'
+        : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
     }`}>
       <Clock className="mr-1 h-3.5 w-3.5" />
       {label}

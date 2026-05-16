@@ -150,7 +150,7 @@ export default function MarketAnalysisCard() {
                 <InfoBlock title={t('风险提示')} items={result.risks} emptyText={t('暂无额外风险')} />
               </div>
 
-              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-200">
                 <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />
                 {result.disclaimer}
               </div>

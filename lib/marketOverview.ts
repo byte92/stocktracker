@@ -232,6 +232,30 @@ async function repairMarketAnalysisResult(
   return patch ? { ...parsed, ...patch } : parsed
 }
 
+async function repairInvalidMarketAnalysisJson(
+  config: AiConfig,
+  rawOutput: string,
+  context: MarketAnalysisContext,
+) {
+  if (!rawOutput.trim()) return null
+
+  const raw = await callProvider(
+    config,
+    '你是严格的 JSON 修复助手。只输出一个合法 JSON 对象，不要输出 Markdown、解释或代码块。',
+    JSON.stringify({
+      task: '上一次 AI 大盘分析输出不是有效 JSON。请基于 rawOutput 和 context 重写为一个完整、合法、可 JSON.parse 的对象。必须遵守 outputContract，所有数组字段至少 1 条；如果 rawOutput 中已有有效结论，请保留其核心含义；如果 rawOutput 被截断或字段缺失，请只基于 context 补齐，不得编造不存在的数据。',
+      rawOutput: rawOutput.slice(0, 12000),
+      context,
+      outputContract: getAnalysisOutputContract('market'),
+    }),
+  )
+  const repaired = safeParseJsonObject<Partial<AiAnalysisResult>>(raw)
+  if (!repaired) {
+    logger.warn('ai.market.invalidJsonRepair.failed', { rawPreview: rawOutput.slice(0, 500) })
+  }
+  return repaired
+}
+
 function normalizeMarketAnalysisResult(
   parsed: Partial<AiAnalysisResult> | null,
 ): AiAnalysisResult {
@@ -475,6 +499,7 @@ export async function generateMarketAnalysis(aiConfig: AiConfig, forceRefresh = 
   const { system, user } = marketPrompt(context, aiConfig)
   const raw = await callProvider(aiConfig, system, user)
   let parsed = safeParseJsonObject<Partial<AiAnalysisResult>>(raw)
+  if (!parsed) parsed = await repairInvalidMarketAnalysisJson(aiConfig, raw, context)
   parsed = normalizeMarketAnalysisShape(parsed)
   parsed = await repairMarketAnalysisResult(aiConfig, parsed, collectMissingMarketAnalysisFields(parsed), context)
   parsed = normalizeMarketAnalysisShape(parsed)

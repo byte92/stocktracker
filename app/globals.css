@@ -206,13 +206,13 @@
     @apply inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm;
   }
   .rates-pill-usd {
-    @apply border-sky-500/40 bg-sky-500/10 text-sky-300;
+    @apply border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300;
   }
   .rates-pill-hkd {
-    @apply border-emerald-500/40 bg-emerald-500/10 text-emerald-300;
+    @apply border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300;
   }
   .rates-pill-cny {
-    @apply border-rose-500/40 bg-rose-500/10 text-rose-300;
+    @apply border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300;
   }
   .rates-value {
     @apply font-mono text-sm text-foreground;

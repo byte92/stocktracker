@@ -542,7 +542,7 @@ function ConclusionBox({
     <div className="rounded-lg border border-border/70 bg-card/60 p-3">
       <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
       <div className="mt-2 text-sm font-medium text-foreground">{value}</div>
-      <div className={`mt-1 text-xs ${highlight ? 'text-amber-100' : 'text-muted-foreground'}`}>{detail}</div>
+      <div className={`mt-1 text-xs ${highlight ? 'text-amber-700 dark:text-amber-200' : 'text-muted-foreground'}`}>{detail}</div>
     </div>
   )
 }
@@ -553,8 +553,8 @@ function FreshnessTag({ generatedAt }: { generatedAt: string }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs ${
       fresh
-        ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-100'
-        : 'border-amber-500/30 bg-amber-500/15 text-amber-100'
+        ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
+        : 'border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-200'
     }`}>
       {fresh ? <Clock className="mr-1 h-3.5 w-3.5" /> : <RefreshCw className="mr-1 h-3.5 w-3.5" />}
       {fresh ? t('有效期内') : `${formatRelativeTime(generatedAt, t)} · ${t('待刷新')}`}

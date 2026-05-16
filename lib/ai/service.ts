@@ -169,6 +169,32 @@ async function repairAnalysisResult(
   return patch ? { ...parsed, ...patch } : parsed
 }
 
+async function repairInvalidAnalysisJson(
+  config: AiConfig,
+  mode: 'portfolio' | 'stock',
+  rawOutput: string,
+  context: PortfolioAnalysisContext | StockAnalysisContext,
+) {
+  if (!rawOutput.trim()) return null
+
+  const raw = await callProvider(
+    config,
+    '你是严格的 JSON 修复助手。只输出一个合法 JSON 对象，不要输出 Markdown、解释或代码块。',
+    JSON.stringify({
+      task: '上一次 AI 投资分析输出不是有效 JSON。请基于 rawOutput 和 context 重写为一个完整、合法、可 JSON.parse 的对象。必须遵守 outputContract，所有数组字段至少 1 条；如果 rawOutput 中已有有效结论，请保留其核心含义；如果 rawOutput 被截断或字段缺失，请只基于 context 补齐，不得编造不存在的数据。',
+      mode,
+      rawOutput: rawOutput.slice(0, 12000),
+      context,
+      outputContract: getAnalysisOutputContract(mode),
+    }),
+  )
+  const repaired = safeParseJsonObject<Partial<AiAnalysisResult>>(raw)
+  if (!repaired) {
+    logger.warn('ai.analysis.invalidJsonRepair.failed', { mode, rawPreview: rawOutput.slice(0, 500) })
+  }
+  return repaired
+}
+
 function normalizeAnalysisResult(parsed: Partial<AiAnalysisResult> | null, mode: 'portfolio' | 'stock'): AiAnalysisResult {
   if (!parsed) {
     throw new Error('AI 分析返回不是有效 JSON，已停止生成分析。')
@@ -300,6 +326,7 @@ export async function generatePortfolioAnalysis(stocks: Stock[], aiConfig: AiCon
   const { system, user } = portfolioPrompt(context, aiConfig)
   const raw = await callProvider(aiConfig, system, user)
   let parsed = safeParseJsonObject<Partial<AiAnalysisResult>>(raw)
+  if (!parsed) parsed = await repairInvalidAnalysisJson(aiConfig, 'portfolio', raw, context)
   parsed = normalizeAnalysisShape(parsed)
   parsed = await repairAnalysisResult(aiConfig, 'portfolio', parsed, collectMissingAnalysisFields(parsed, 'portfolio'), context)
   parsed = normalizeAnalysisShape(parsed)
@@ -326,6 +353,7 @@ export async function generateStockAnalysis(stock: Stock, aiConfig: AiConfig, fo
   const { system, user } = stockPrompt(context, aiConfig)
   const raw = await callProvider(aiConfig, system, user)
   let parsed = safeParseJsonObject<Partial<AiAnalysisResult>>(raw)
+  if (!parsed) parsed = await repairInvalidAnalysisJson(aiConfig, 'stock', raw, context)
   parsed = normalizeAnalysisShape(parsed)
   parsed = await repairAnalysisResult(aiConfig, 'stock', parsed, collectMissingAnalysisFields(parsed, 'stock'), context)
   parsed = normalizeAnalysisShape(parsed)

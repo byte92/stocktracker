@@ -150,7 +150,7 @@ export default function MarketOverviewBoard() {
                         <div className="text-sm font-medium text-foreground">{index.name}</div>
                         <div className="mt-1 text-xs text-muted-foreground">{index.code}</div>
                       </div>
-                      <div className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${index.change >= 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
+                      <div className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${index.change >= 0 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'}`}>
                         {index.change >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                         {index.change >= 0 ? t('偏强') : t('偏弱')}
                       </div>

@@ -291,7 +291,7 @@ export default function SettingsContent({
           <div className="flex items-center gap-2">
             <div className="text-sm font-medium text-foreground">{title}</div>
             {dirty && (
-              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
                 {t('未保存')}
               </span>
             )}
@@ -538,7 +538,7 @@ export default function SettingsContent({
           </div>
 
           {testMessage && (
-            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300">
+            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300">
               {testMessage}
             </div>
           )}
@@ -614,7 +614,7 @@ export default function SettingsContent({
             {saving ? t('保存中...') : t('保存设置')}
           </Button>
           {successMessage && (
-            <div className="absolute right-0 top-full mt-2 w-max max-w-xs rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300 shadow-lg">
+            <div className="absolute right-0 top-full mt-2 w-max max-w-xs rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 shadow-lg dark:text-emerald-300">
               <Check className="mr-1 inline h-3.5 w-3.5" />
               {successMessage}
             </div>

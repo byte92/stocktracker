@@ -150,12 +150,12 @@ export default function PortfolioAnalysisCard({ compact = false }: { compact?: b
                         </span>
                       )}
                       {result.actionPlan[0] && (
-                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-200">
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-200">
                           {t('首要动作：{value}', { value: result.actionPlan[0] })}
                         </span>
                       )}
                       {topRisks[0] && (
-                        <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-100">
+                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-200">
                           {t('主要风险：{value}', { value: topRisks[0] })}
                         </span>
                       )}
@@ -183,7 +183,7 @@ export default function PortfolioAnalysisCard({ compact = false }: { compact?: b
               {!compact && <InfoBlock title={t('失效信号')} items={result.invalidationSignals} emptyText={t('暂无失效信号')} />}
               {!compact && result.evidence.length > 0 && <InfoBlock title={t('决策依据')} items={result.evidence} emptyText={t('暂无决策依据')} />}
 
-              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-200">
                 <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />
                 {result.disclaimer}
               </div>
@@ -224,8 +224,8 @@ function PortfolioSnapshotAgeBadge({ generatedAt, now }: { generatedAt: string; 
   return (
     <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium normal-case tracking-normal ${
       stale
-        ? 'border-amber-500/30 bg-amber-500/15 text-amber-100'
-        : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-100'
+        ? 'border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-200'
+        : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
     }`}>
       <Clock className="mr-1 h-3.5 w-3.5" />
       {label}
