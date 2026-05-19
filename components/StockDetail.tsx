@@ -53,6 +53,8 @@ export default function StockDetail({ stock, onBack }: StockDetailProps) {
 
   const currentPriceNum = quote?.price || parseFloat(manualPrice) || undefined
   const summary = calcStockSummary(stock, currentPriceNum)
+  const weightedCost = summary.avgCostPrice * summary.currentHolding
+  const fifoCost = summary.fifoCostBasis
   const nativeCurrency = MARKET_CURRENCY[stock.market] || 'CNY'
   const quoteTimeLabel = quote?.timestamp ? formatQuoteTimestamp(quote.timestamp, t, formatDateTime) : null
   const formatAmountWithNative = (amount: number) => formatWithNativeCurrency(amount, nativeCurrency, numberLocale)
@@ -232,8 +234,9 @@ export default function StockDetail({ stock, onBack }: StockDetailProps) {
             <div className="text-lg font-bold font-mono text-foreground">
               {formatQuantity(summary.currentHolding, numberLocale)} {assetUnit}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {t('均成本 {amount}', { amount: formatPriceWithNative(summary.avgCostPrice) })}
+            <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+              <div>{t('加权均价 {amount}', { amount: formatPriceWithNative(summary.avgCostPrice) })}</div>
+              <div>{t('FIFO 均价 {amount}', { amount: formatPriceWithNative(summary.fifoAvgCostPrice) })}</div>
             </div>
           </Card>
 
@@ -285,7 +288,7 @@ export default function StockDetail({ stock, onBack }: StockDetailProps) {
               </div>
 
               {currentPriceNum && currentPriceNum > 0 && (
-                <div className="mt-3 pt-3 border-t border-border flex items-center gap-6">
+                <div className="mt-3 pt-3 border-t border-border flex items-center gap-6 flex-wrap">
                   <div>
                     <div className="text-xs text-muted-foreground">{t('浮动盈亏')}</div>
                     <div className={`text-base font-bold font-mono ${summary.unrealizedPnl >= 0 ? 'profit-text' : 'loss-text'}`}>
@@ -305,9 +308,21 @@ export default function StockDetail({ stock, onBack }: StockDetailProps) {
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground">{t('成本')}</div>
+                    <div className="text-xs text-muted-foreground">{t('加权成本')}</div>
                     <div className="text-base font-bold font-mono text-foreground">
-                      {formatAmountWithNative(summary.avgCostPrice * summary.currentHolding)}
+                      {formatAmountWithNative(weightedCost)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {t('均价 {amount}', { amount: formatPriceWithNative(summary.avgCostPrice) })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">{t('FIFO 成本')}</div>
+                    <div className="text-base font-bold font-mono text-foreground">
+                      {formatAmountWithNative(fifoCost)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {t('均价 {amount}', { amount: formatPriceWithNative(summary.fifoAvgCostPrice) })}
                     </div>
                   </div>
                 </div>

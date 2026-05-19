@@ -658,6 +658,7 @@ test('成都银行部分卖出后成本价按券商摊薄口径计算', () => {
 
   assert.equal(summary.currentHolding, 5800)
   assert.equal(Number(summary.avgCostPrice.toFixed(4)), 13.7333)
+  assert.equal(Number(summary.fifoAvgCostPrice.toFixed(4)), 16.1436)
 })
 
 test('加密资产支持小数数量和交易所手续费', () => {

@@ -68,8 +68,9 @@ export class StockPriceService {
       try {
         const quote = await source.getQuote(symbol, market)
         if (quote) {
-          this.setCache(key, quote, provider)
-          return quote
+          const localizedQuote = await this.withPreferredChineseName(quote, symbol, market)
+          this.setCache(key, localizedQuote, provider)
+          return localizedQuote
         }
       } catch (e) {
         logger.warn('quote.provider.failed', { error: e, provider, symbol, market })
@@ -104,10 +105,32 @@ export class StockPriceService {
     return this.config.fallbackChain
   }
 
+  private async withPreferredChineseName(quote: StockQuote, symbol: string, market: Market): Promise<StockQuote> {
+    if (market !== 'US' && market !== 'HK') return quote
+    if (hasChineseText(quote.name)) return quote
+
+    const tencent = this.sources.get('tencent')
+    if (!tencent) return quote
+
+    try {
+      const localizedQuote = await tencent.getQuote(symbol, market)
+      const localizedName = localizedQuote?.name?.trim()
+      if (!localizedName || !hasChineseText(localizedName)) return quote
+      return { ...quote, name: localizedName }
+    } catch (error) {
+      logger.warn('quote.localizedName.failed', { error, symbol, market })
+      return quote
+    }
+  }
+
   private setCache(key: string, quote: StockQuote, provider: DataSourceProvider) {
     const ttl = this.config.sources[provider]?.cacheTtl ?? this.config.cacheTtl
     this.cache.set(key, { quote, timestamp: Date.now(), expiresAt: Date.now() + ttl * 1000 })
   }
+}
+
+function hasChineseText(value: string) {
+  return /[\u3400-\u9fff]/.test(value)
 }
 
 export const stockPriceService = new StockPriceService()

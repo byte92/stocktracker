@@ -448,6 +448,8 @@ export function calcStockSummary(
   // 当前持仓成本价采用券商常见摊薄口径：买入增加成本，卖出实收和现金收益降低成本；清仓后重置。
   const remainingCost = currentHolding > 0 ? displayCostBasis : 0;
   const avgCostPrice = currentHolding > 0 ? roundTo(calcPerShareCost(remainingCost, currentHolding), 6) : 0;
+  const fifoCostBasis = currentHolding > 0 ? getCostQueueCost(costQueue) : 0;
+  const fifoAvgCostPrice = currentHolding > 0 ? roundTo(calcPerShareCost(fifoCostBasis, currentHolding), 6) : 0;
   const unrealizedPnl =
     currentHolding > 0 && currentPrice
       ? sub(mul(currentPrice, currentHolding), remainingCost)
@@ -467,6 +469,8 @@ export function calcStockSummary(
     totalSellAmount,
     currentHolding,
     avgCostPrice,
+    fifoCostBasis,
+    fifoAvgCostPrice,
     realizedPnl,
     unrealizedPnl,
     totalPnl,

@@ -42,6 +42,10 @@ function normalizePayload(payload: Partial<StoredPayload> | null | undefined): S
         ...DEFAULT_APP_CONFIG.currency,
         ...(payload?.config?.currency ?? {}),
       },
+      portfolio: {
+        ...DEFAULT_APP_CONFIG.portfolio,
+        ...(payload?.config?.portfolio ?? {}),
+      },
     },
   };
 }

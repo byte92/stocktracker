@@ -32,7 +32,7 @@ type TodayPnlSnapshot = {
 }
 
 export default function PortfolioSummarySection() {
-  const { stocks } = useStockStore()
+  const { stocks, config } = useStockStore()
   const { displayCurrency, convertAmountSync, formatWithCurrency, rates } = useCurrency()
   const { t, numberLocale } = useI18n()
   const [expanded, setExpanded] = useState(false)
@@ -62,6 +62,7 @@ export default function PortfolioSummarySection() {
     let totalCommission = 0
     let totalDividend = 0
     let totalHolding = 0
+    let totalCurrentCost = 0
 
     for (const stock of stocks) {
       const summary = calcStockSummary(stock)
@@ -70,20 +71,31 @@ export default function PortfolioSummarySection() {
       totalCommission += convertAmountSync(summary.totalCommission, stock.market)
       totalDividend += convertAmountSync(summary.totalDividend, stock.market)
       totalHolding += summary.currentHolding
+      totalCurrentCost += Math.max(convertAmountSync(summary.fifoCostBasis, stock.market), 0)
     }
 
     const totalRealizedPnlPercent = totalInvested > 0 ? (totalRealizedPnl / totalInvested) * 100 : 0
+    const totalCapital = config.portfolio.totalCapital
+    const totalCapitalAmount = totalCapital
+      ? convertCurrencyAmount(totalCapital.amount, totalCapital.currency, displayCurrency, rates)
+      : null
+    const totalPositionPercent = totalCapitalAmount && totalCapitalAmount > 0 ? (totalCurrentCost / totalCapitalAmount) * 100 : null
+    const cashReserve = totalCapitalAmount !== null ? totalCapitalAmount - totalCurrentCost : null
 
     return {
       totalRealizedPnl,
       totalInvested,
+      totalCurrentCost,
+      totalCapitalAmount,
+      totalPositionPercent,
+      cashReserve,
       totalRealizedPnlPercent,
       totalCommission,
       totalDividend,
       totalHolding,
       stockCount: stocks.length,
     }
-  }, [stocks, convertAmountSync])
+  }, [config.portfolio.totalCapital, convertAmountSync, displayCurrency, rates, stocks])
 
   useEffect(() => {
     let cancelled = false
@@ -249,7 +261,7 @@ export default function PortfolioSummarySection() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Card className="stat-card border-border">
           <div className="text-xs text-muted-foreground mb-1">{t('今日盈亏')}</div>
           <div className={`stat-value ${todayPnl.amount >= 0 ? 'profit-text' : 'loss-text'}`}>
@@ -295,6 +307,18 @@ export default function PortfolioSummarySection() {
             {formatPercent(portfolio.totalRealizedPnlPercent)}
           </div>
         </Card>
+
+        <Card className="stat-card border-border">
+          <div className="text-xs text-muted-foreground mb-1">{t('总仓位')}</div>
+          <div className="stat-value text-foreground">
+            {portfolio.totalPositionPercent === null ? '--' : formatAllocationPercent(portfolio.totalPositionPercent, numberLocale)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {portfolio.totalCapitalAmount === null
+              ? t('未设置总资金')
+              : t('总资金 {amount}', { amount: formatWithCurrency(portfolio.totalCapitalAmount) })}
+          </div>
+        </Card>
       </div>
 
       {expanded && (
@@ -322,8 +346,30 @@ export default function PortfolioSummarySection() {
             </div>
             <div className="text-xs text-muted-foreground mt-1">{t('全部市场')}</div>
           </Card>
+
+          <Card className="stat-card border-border">
+            <div className="text-xs text-muted-foreground mb-1">{t('未投入资金')}</div>
+            <div className={`stat-value ${portfolio.cashReserve === null || portfolio.cashReserve >= 0 ? 'text-foreground' : 'loss-text'}`}>
+              {portfolio.cashReserve === null ? '--' : formatWithCurrency(portfolio.cashReserve)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">{t('总资金扣除当前持仓成本')}</div>
+          </Card>
         </div>
       )}
     </section>
   )
+}
+
+function convertCurrencyAmount(amount: number, fromCurrency: string, toCurrency: string, rates: Record<string, number>) {
+  if (fromCurrency === toCurrency) return amount
+  const fromRate = rates[fromCurrency] || 1
+  const toRate = rates[toCurrency] || 1
+  return (amount * fromRate) / toRate
+}
+
+function formatAllocationPercent(value: number, locale: string) {
+  return `${value.toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`
 }

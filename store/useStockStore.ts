@@ -70,6 +70,10 @@ function mergeAppConfig(config?: Partial<AppConfig>): AppConfig {
       ...DEFAULT_APP_CONFIG.currency,
       ...(config?.currency ?? {}),
     },
+    portfolio: {
+      ...DEFAULT_APP_CONFIG.portfolio,
+      ...(config?.portfolio ?? {}),
+    },
   };
 }
 
@@ -383,6 +387,10 @@ export const useStockStore = create<StockStore>()((set, get) => ({
       currency: {
         ...get().config.currency,
         ...(configPatch.currency ?? {}),
+      },
+      portfolio: {
+        ...get().config.portfolio,
+        ...(configPatch.portfolio ?? {}),
       },
     });
     const nextStocks = get().stocks;

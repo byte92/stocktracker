@@ -3,7 +3,7 @@ import type { MarketAnalysisSkillContext } from '@/lib/agent/skills/market'
 import type { PortfolioAnalysisContext, StockAnalysisContext } from '@/lib/agent/skills/analysis'
 import type { AgentPlan, AgentSkillResult } from '@/lib/agent/types'
 import { getContextStats } from '@/lib/ai/chat'
-import type { AiChatContextStats, AiConfig, Stock } from '@/types'
+import type { AiChatContextStats, AiConfig, AppConfig, Stock } from '@/types'
 
 export type AnalysisAgentTaskResult<TContext> = {
   context: TContext
@@ -14,6 +14,7 @@ export type AnalysisAgentTaskResult<TContext> = {
 
 export type AnalysisTaskOptions = {
   baseCurrency?: 'CNY' | 'HKD' | 'USD' | 'USDT'
+  totalCapital?: AppConfig['portfolio']['totalCapital']
 }
 
 function estimateContextStats(context: unknown, aiConfig: AiConfig) {
@@ -39,7 +40,7 @@ export async function runPortfolioAnalysisAgentTask(
     requiredSkills: [
       {
         name: 'portfolio.getAnalysisContext',
-        args: { baseCurrency: options.baseCurrency ?? 'CNY' },
+        args: { baseCurrency: options.baseCurrency ?? 'CNY', totalCapital: options.totalCapital ?? null },
         reason: '固定组合分析模板需要组合摘要、行情、仓位权重、盈亏结构和近期交易活动。',
       },
     ],
