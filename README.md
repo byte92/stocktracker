@@ -28,10 +28,6 @@ StockTracker 是一个本地优先的个人投资记录、组合核算和 AI 投
 | --- | --- |
 | ![个股详情](./docs/assets/screenshots/readme-stock-detail.png) | ![AI 对话](./docs/assets/screenshots/readme-ai-chat.png) |
 
-| AI 分析历史 |
-| --- |
-| ![AI 分析历史](./docs/assets/screenshots/readme-ai-history.png) |
-
 ## 为什么做它 💡
 
 大多数投资工具擅长展示价格，但不回答持仓核算的具体问题：真实成本是多少、手续费和分红怎么算进去。
@@ -75,7 +71,7 @@ StockTracker 不适合：
 
 ### AI 投研工作流 🤖
 
-- 内置 AI 对话、组合分析、个股分析、大盘分析和分析历史。
+- 内置 AI 对话、组合分析、个股分析和大盘分析。
 - AI Agent Runtime 按需调用 Skill，不把全部持仓粗暴塞进上下文。
 - 交易复盘内置事实账本、成本收益、仓位风险、行情位置和行为纪律等分析框架，并可解释道氏理论、趋势跟随、均值回归等常见方法论。
 - 支持未持仓标的查询，自动解析名称、代码和市场并抓取外部行情。

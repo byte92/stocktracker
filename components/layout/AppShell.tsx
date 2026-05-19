@@ -21,8 +21,6 @@ const NAV_ITEMS = [
 const AI_SUB_ITEMS = [
   { href: '/ai/chat', labelKey: 'AI 对话', match: (pathname: string) => pathname.startsWith('/ai/chat') },
   { href: '/ai', labelKey: '分析中心', match: (pathname: string) => pathname === '/ai' },
-  { href: '/ai/history', labelKey: '分析历史', match: (pathname: string) => pathname.startsWith('/ai/history') },
-  { href: '/ai/debug', labelKey: 'Debug', match: (pathname: string) => pathname.startsWith('/ai/debug') },
 ] as const
 
 const SIDEBAR_COLLAPSED_KEY = 'stock-tracker-sidebar-collapsed'
@@ -212,7 +210,6 @@ function SidebarContent({
           {!collapsed && aiNavExpanded && (
             <div className="ml-3 space-y-1 border-l border-border/70 pl-3">
               {AI_SUB_ITEMS
-                .filter((item) => item.href !== '/ai/debug' || debugEnabled)
                 .map((item) => {
                   const active = item.match(pathname)
                   return (
@@ -235,7 +232,7 @@ function SidebarContent({
       </nav>
 
       <div className={`border-t border-border py-4 space-y-3 ${collapsed ? 'px-2' : 'px-4'}`}>
-        <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : 'justify-start'}`}>
+        <div className={`flex gap-2 ${collapsed ? 'flex-col items-center justify-center' : 'items-center justify-start'}`}>
           {mounted && (
             <Button
               type="button"

@@ -16,8 +16,8 @@ export default function MarketsPage() {
       />
 
       <div className="px-4 py-6 lg:px-6 space-y-6">
-        <MarketOverviewBoard />
         <MarketAnalysisCard />
+        <MarketOverviewBoard />
       </div>
     </div>
   )

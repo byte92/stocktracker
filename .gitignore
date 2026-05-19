@@ -44,6 +44,9 @@ data/*.sqlite
 data/*.sqlite-*
 data/*.sqlite.backup-*
 data/*.sqlite.bak-*
+data/*.db
+data/*.db-*
+data/*.jsonl
 docker/data/*.sqlite
 docker/data/*.sqlite-*
 docker/data/*.sqlite.backup-*
