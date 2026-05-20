@@ -284,6 +284,7 @@ export const enMessages: Record<string, string> = {
   '强制刷新': 'Force Refresh',
   '重新分析': 'Reanalyze',
   '开始分析': 'Start Analysis',
+  '分析中...': 'Analyzing...',
   '正在加载今天的大盘分析结果...': 'Loading today’s market analysis...',
   '点击“开始分析”后，系统会结合 A 股、港股、美股代表指数的行情、技术指标与新闻生成结构化大盘判断。': 'Click “Start Analysis” to generate structured market judgement using A-share, Hong Kong, and US index quotes, technical indicators, and news.',
   'AI 总结': 'AI Summary',

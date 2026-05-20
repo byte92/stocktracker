@@ -175,8 +175,8 @@ function SidebarContent({
                 collapsed ? 'justify-center px-2' : 'gap-3 px-3'
               } ${
                 active
-                  ? 'bg-primary/12 text-primary border border-primary/20'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  ? 'border border-primary/20 bg-primary/12 text-primary'
+                  : 'border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -194,8 +194,8 @@ function SidebarContent({
               collapsed ? 'justify-center px-2' : 'gap-3 px-3'
             } ${
               aiSectionActive
-                ? 'bg-primary/12 text-primary border border-primary/20'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                ? 'border border-primary/20 bg-primary/12 text-primary'
+                : 'border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground'
             }`}
           >
             <Sparkles className="h-4 w-4" />

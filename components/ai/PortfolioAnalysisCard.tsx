@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Sparkles, AlertTriangle, Clock } from 'lucide-react'
+import { Sparkles, AlertTriangle, Clock, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { describeClientRequestError, readJsonResponse } from '@/lib/api/client'
@@ -103,9 +103,9 @@ export default function PortfolioAnalysisCard({ compact = false }: { compact?: b
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={runAnalysis} disabled={loading || stocks.length === 0}>
-            <Sparkles className="mr-1 h-3.5 w-3.5" />
-            {result ? t('重新分析') : t('开始分析')}
+          <Button size="sm" onClick={runAnalysis} disabled={loading || stocks.length === 0} aria-busy={loading}>
+            {loading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />}
+            {loading ? t('分析中...') : result ? t('重新分析') : t('开始分析')}
           </Button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock, Sparkles } from 'lucide-react'
+import { AlertTriangle, Clock, Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { describeClientRequestError, readJsonResponse } from '@/lib/api/client'
@@ -108,9 +108,9 @@ export default function StockAnalysisPanel({ stock }: { stock: Stock }) {
             <div className="mt-1 text-xs text-muted-foreground">{t('结合持仓、技术指标、估值和新闻驱动给出短中期观察建议。')}</div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={runAnalysis} disabled={loading}>
-              <Sparkles className="mr-1 h-3.5 w-3.5" />
-              {result ? t('重新分析') : t('开始分析')}
+            <Button size="sm" onClick={runAnalysis} disabled={loading} aria-busy={loading}>
+              {loading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />}
+              {loading ? t('分析中...') : result ? t('重新分析') : t('开始分析')}
             </Button>
           </div>
         </div>
