@@ -24,7 +24,7 @@ function createTencentQuoteLine(symbol: string, fields: Record<number, string>) 
 }
 
 function createTencentResponse(line: string) {
-  return new Response(iconv.encode(line, 'GBK'))
+  return new Response(iconv.encode(line, 'GBK') as unknown as BodyInit)
 }
 
 test('腾讯行情源会解析 A 股估值字段', async () => {

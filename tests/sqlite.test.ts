@@ -178,6 +178,53 @@ test('sqlite ai history filters latest stock analysis by stock id', () => {
   }
 })
 
+test('sqlite ai history preserves financial analysis result shape', () => {
+  const store = createPortfolioStore(createTempDbPath())
+
+  try {
+    const financialResult = {
+      symbol: '601398',
+      market: 'A',
+      analysis: {
+        companyName: '工商银行',
+        reportPeriod: '2026-03-31',
+        confidence: 'medium',
+        trendSummary: '营收和利润保持增长。',
+        metrics: { revenue: '2,303.7 亿', netProfit: '869.41 亿' },
+        highlights: ['营收增长'],
+        risks: ['利差压力'],
+        valuationNotes: ['PB 偏低'],
+        missingData: [],
+      },
+      chain: { provider: 'openai-compatible', degraded: false },
+    }
+
+    store.saveAiAnalysis({
+      id: 'financial-record-1',
+      userId: 'local:test-user',
+      type: 'financial',
+      stockId: 'stock-icbc',
+      stockCode: '601398',
+      stockName: '工商银行',
+      market: 'A',
+      confidence: 'medium',
+      tags: ['财报分析', 'A'],
+      generatedAt: '2026-05-21T08:00:00.000Z',
+      result: financialResult,
+    })
+
+    const records = store.listAiAnalysisByUserId('local:test-user', { type: 'financial', limit: 1 })
+    const result = records[0]?.result as typeof financialResult | undefined
+
+    assert.equal(records.length, 1)
+    assert.equal(records[0]?.type, 'financial')
+    assert.equal(result?.analysis.companyName, '工商银行')
+    assert.equal(result?.analysis.metrics.revenue, '2,303.7 亿')
+  } finally {
+    store.close()
+  }
+})
+
 test('sqlite persists and lists ai agent runs', () => {
   const store = createPortfolioStore(createTempDbPath())
 

@@ -26,6 +26,8 @@
   "author": "StockTracker contributors",
   "license": "MIT",
   "dependencies": {
+    "@langchain/core": "0.3.79",
+    "@langchain/openai": "0.6.13",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
@@ -37,6 +39,7 @@
     "iconv-lite": "^0.7.2",
     "lightweight-charts": "^4.2.3",
     "next": "^16.2.4",
+    "pdf-parse": "1.1.1",
     "playwright": "^1.59.1",
     "react": "^19.2.4",
     "react-day-picker": "^9.14.0",
@@ -45,6 +48,7 @@
     "recharts": "^3.7.0",
     "remark-gfm": "^4.0.1",
     "yaml": "^2.8.3",
+    "zod": "3.25.76",
     "zustand": "^5.0.11"
   },
   "overrides": {
@@ -62,6 +66,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/big.js": "^6.2.2",
     "@types/node": "^25.3.3",
+    "@types/pdf-parse": "1.1.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.27",
