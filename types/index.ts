@@ -63,7 +63,7 @@ export interface FeeConfig {
 
 export type AiAnalysisLanguage = 'zh-CN' | 'en-US'
 export type AiProvider = 'openai-compatible' | 'anthropic-compatible'
-export type AiAnalysisType = 'portfolio' | 'stock' | 'market'
+export type AiAnalysisType = 'portfolio' | 'stock' | 'market' | 'financial'
 export type AiConfidence = 'low' | 'medium' | 'high'
 export type AiAnalysisStrength = 'high' | 'medium' | 'weak'
 export type MarketRegion = 'A' | 'HK' | 'US'
@@ -286,7 +286,7 @@ export interface AiAnalysisHistoryRecord {
   confidence: AiConfidence
   generatedAt: string
   createdAt: string
-  result: AiAnalysisResult
+  result: AiAnalysisResult | Record<string, unknown>
 }
 
 export type AiChatRole = 'system' | 'user' | 'assistant'

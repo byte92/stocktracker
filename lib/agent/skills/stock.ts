@@ -1,11 +1,15 @@
 import { buildTechnicalIndicatorHistory, buildTechnicalIndicatorSnapshot } from '@/lib/technicalIndicators'
+import { marketSupportsValuation } from '@/config/defaults'
 import { calcStockSummary } from '@/lib/finance'
 import { stockPriceService } from '@/lib/StockPriceService'
+import { runFinancialAnalysisChain } from '@/lib/agent/chains/financialAnalysis'
 import { matchStocks } from '@/lib/agent/entity/stockMatcher'
 import { resolveSecurityCandidates } from '@/lib/agent/entity/securityResolver'
+import { webSearchSkill, type WebSearchResult } from '@/lib/agent/skills/search'
 import { fetchDailyCandles } from '@/lib/external/kline'
 import { THIRD_PARTY_REQUEST_HEADERS, thirdPartyApiUrls } from '@/lib/external/thirdPartyApis'
 import { loggedFetch } from '@/lib/observability/fetch'
+import { cleanFinancialDisplayText, type FinancialAnalysis, type FinancialAnalysisInput } from '@/lib/agent/financials/schema'
 import type { AgentSkill } from '@/lib/agent/types'
 import type { Market, Stock } from '@/types'
 import type { StockQuote } from '@/types/stockApi'
@@ -243,19 +247,32 @@ export type FinancialsInput = {
   market: Market
   researchQuery?: string
   sourceHints?: string[]
+  documents?: FinancialAnalysisInput['documents']
 }
 
-export type FinancialsData = {
+export type LegacyFinancialsData = {
   symbol: string
   market: Market
   earningsDate: string | null
   epsActual: number | null
   epsEstimate: number | null
   epsSurprise: number | null
+  revenue: number | null
+  netProfit: number | null
   revenueGrowth: number | null
   earningsGrowth: number | null
   source: string
   note?: string
+}
+
+export type FinancialsData = LegacyFinancialsData & {
+  analysis: FinancialAnalysis
+  documents: FinancialAnalysisInput['documents']
+  chain: {
+    provider: 'langchain-openai' | 'native-json'
+    degraded: boolean
+    error?: string
+  }
 }
 
 function parseMoneyWan(value: string | undefined) {
@@ -279,13 +296,20 @@ function growthPercent(current: number | null, previous: number | null) {
   return Number((((current - previous) / Math.abs(previous)) * 100).toFixed(2))
 }
 
+function formatFinancialAmount(amount: number) {
+  if (Math.abs(amount) >= 100_000_000) {
+    return `${(amount / 100_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 })} 亿`
+  }
+  return `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} 元`
+}
+
 function extractFinancialRow(text: string, label: string, count: number) {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const match = text.match(new RegExp(`${escaped}\\s+((?:[-\\d,.]+\\s+){1,${count}})`, 'i'))
   return match?.[1]?.trim().split(/\s+/).slice(0, count) ?? []
 }
 
-async function fetchSinaAStockFinancials(symbol: string): Promise<FinancialsData | null> {
+async function fetchSinaAStockFinancials(symbol: string): Promise<LegacyFinancialsData | null> {
   const iconv = await import('iconv-lite')
   const url = thirdPartyApiUrls.sinaProfitStatement(symbol)
   const res = await loggedFetch(url, {
@@ -326,63 +350,186 @@ async function fetchSinaAStockFinancials(symbol: string): Promise<FinancialsData
     epsActual,
     epsEstimate: null,
     epsSurprise: null,
+    revenue: currentRevenue,
+    netProfit: currentNetProfit,
     revenueGrowth: growthPercent(currentRevenue, previousRevenue),
     earningsGrowth: growthPercent(currentNetProfit, previousNetProfit),
     source: 'sina-finance-profit-statement',
     note: [
-      currentRevenue !== null ? `营业收入 ${currentRevenue} 元` : '',
-      currentNetProfit !== null ? `归母净利润 ${currentNetProfit} 元` : '',
+      currentRevenue !== null ? `营业收入 ${formatFinancialAmount(currentRevenue)}` : '',
+      currentNetProfit !== null ? `归母净利润 ${formatFinancialAmount(currentNetProfit)}` : '',
       epsActual !== null ? `基本每股收益 ${epsActual} 元/股` : '',
       dates[0] ? `报告期 ${dates[0]}` : '',
     ].filter(Boolean).join('；'),
   }
 }
 
+function buildFinancialSearchQuery(symbol: string, market: Market, displayName: string, researchQuery: string) {
+  if (/财报|年报|季报|中报|业绩|earnings|annual|quarter|10-q|10-k/i.test(researchQuery)) return researchQuery
+  if (market === 'US') return `${displayName} ${symbol} latest earnings report revenue profit cash flow`
+  if (market === 'HK') return `${displayName} ${symbol} 最新 财报 业绩 公告 收入 利润 现金流`
+  return `${displayName} ${symbol} 最新 财报 业绩 营收 净利润 现金流`
+}
+
+function normalizeSearchDocuments(result: WebSearchResult | undefined): FinancialAnalysisInput['documents'] {
+  if (!result?.results?.length) return []
+  return result.results
+    .map((item) => ({
+      title: item.title,
+      url: item.url,
+      publisher: item.source,
+      excerpt: cleanFinancialDisplayText(item.content || item.snippet || ''),
+    }))
+    .filter((item) => item.title && item.excerpt)
+    .slice(0, 5)
+}
+
+async function fetchFinancialDocuments(query: string, sourceHints: string[], ctx: Parameters<AgentSkill<FinancialsInput, FinancialsData>['execute']>[1]) {
+  const result = await webSearchSkill.execute({
+    query,
+    ...(sourceHints.length ? { sourceHints } : {}),
+    limit: 3,
+    searchLimit: 8,
+  }, ctx)
+  return result.ok ? normalizeSearchDocuments(result.data as WebSearchResult) : []
+}
+
+function buildFinancialAnalysisInput({
+  symbol,
+  market,
+  stock,
+  financials,
+  quote,
+  documents,
+  userQuestion,
+  language,
+}: {
+  symbol: string
+  market: Market
+  stock: Stock | undefined
+  financials: LegacyFinancialsData | null
+  quote: StockQuote | null
+  documents: FinancialAnalysisInput['documents']
+  userQuestion: string
+  language: FinancialAnalysisInput['language']
+}): FinancialAnalysisInput {
+  const summary = stock ? calcStockSummary(stock, quote?.price) : null
+  return {
+    security: {
+      symbol,
+      market,
+      name: stock?.name ?? quote?.name,
+      inPortfolio: Boolean(stock),
+      stockId: stock?.id,
+    },
+    localHolding: summary ? {
+      currentHolding: summary.currentHolding,
+      avgCostPrice: summary.avgCostPrice,
+      marketPrice: quote?.price ?? null,
+      marketValue: quote?.price ? Number((summary.currentHolding * quote.price).toFixed(2)) : null,
+      realizedPnl: summary.realizedPnl,
+      unrealizedPnl: summary.unrealizedPnl,
+      totalPnl: summary.totalPnl,
+      totalPnlPercent: summary.totalPnlPercent,
+      tradeCount: summary.tradeCount,
+    } : undefined,
+    structuredFinancials: financials ? {
+      reportPeriod: financials.earningsDate,
+      revenue: financials.revenue,
+      revenueGrowth: financials.revenueGrowth,
+      netProfit: financials.netProfit,
+      netProfitGrowth: financials.earningsGrowth,
+      eps: financials.epsActual,
+      source: financials.source,
+      note: financials.note,
+    } : undefined,
+    quote: quote ? {
+      price: quote.price,
+      peTtm: quote.peTtm ?? null,
+      pb: quote.pb ?? null,
+      epsTtm: quote.epsTtm ?? null,
+      marketCap: quote.marketCap ?? null,
+      currency: quote.currency,
+      source: quote.source,
+    } : null,
+    documents,
+    userQuestion,
+    language,
+  }
+}
+
 export const stockGetFinancialsSkill: AgentSkill<FinancialsInput, FinancialsData> = {
   name: 'stock.getFinancials',
-  description: '获取标的最近财报数据（EPS、营收增长等），支持美股/A股/港股。',
+  description: '获取并分析标的最近财报数据，返回营收、利润、EPS、估值、亮点、风险、来源和缺失项，支持美股/A股/港股。',
   inputSchema: { symbol: 'string', market: 'Market', researchQuery: 'string?', sourceHints: 'string[]?' },
   requiredScopes: ['quote.read', 'network.fetch'],
   async execute(args, ctx) {
     const { symbol, market } = args
     if (!symbol) return { skillName: 'stock.getFinancials', ok: false, error: '缺少标的代码' }
-    const stock = ctx.stocks.find((item) => item.code === symbol || item.code.toUpperCase() === String(symbol).toUpperCase())
+    if (!marketSupportsValuation(market, String(symbol))) {
+      return {
+        skillName: 'stock.getFinancials',
+        ok: false,
+        error: '基金、ETF、加密资产等产品本身没有公司财报，无法进行财报分析。可以改问持仓表现、跟踪指数、费率、净值或组合风险。',
+      }
+    }
+    const normalizedSymbol = String(symbol).toUpperCase()
+    const stock = ctx.stocks.find((item) => item.code === symbol || item.code.toUpperCase() === normalizedSymbol)
     const displayName = stock?.name ? `${stock.name} ${symbol}` : String(symbol)
     const researchQuery = String(args.researchQuery || displayName).replace(/\s+/g, ' ').trim()
     const sourceHints = Array.isArray(args.sourceHints)
       ? args.sourceHints.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
       : []
+    const manualDocuments = Array.isArray(args.documents)
+      ? args.documents.filter((item): item is FinancialAnalysisInput['documents'][number] => (
+          Boolean(item && typeof item.title === 'string' && typeof item.excerpt === 'string')
+        ))
+      : []
 
-    // A 股：通过 Google 搜索最新财报
-    if (market === 'A') {
-      const financials = await fetchSinaAStockFinancials(String(symbol)).catch(() => null)
-      if (financials) {
-        return {
-          skillName: 'stock.getFinancials',
-          ok: true,
-          data: financials,
-        }
-      }
+    const [quote, financials] = await Promise.all([
+      stockPriceService.getQuote(String(symbol), market).catch(() => null),
+      market === 'A' ? fetchSinaAStockFinancials(String(symbol)).catch(() => null) : Promise.resolve(null),
+    ])
+    const searchQuery = buildFinancialSearchQuery(String(symbol), market, displayName, researchQuery)
+    const documents = manualDocuments.length
+      ? manualDocuments
+      : financials
+      ? []
+      : await fetchFinancialDocuments(searchQuery, sourceHints, ctx).catch(() => [])
+    const input = buildFinancialAnalysisInput({
+      symbol: String(symbol),
+      market,
+      stock,
+      financials,
+      quote,
+      documents,
+      userQuestion: researchQuery,
+      language: ctx.aiConfig.analysisLanguage === 'en-US' ? 'en' : 'zh',
+    })
+    const chain = await runFinancialAnalysisChain(input, ctx.aiConfig)
 
-      return {
-        skillName: 'stock.getFinancials',
-        ok: false,
-        error: 'A 股财报需通过搜索引擎查找',
-        needsFollowUp: true,
-        suggestedSkills: [
-          { name: 'web.search', args: { query: researchQuery, ...(sourceHints.length ? { sourceHints } : {}), limit: 5 }, reason: '结构化财报不可用，按模型提供的检索语句补充公开信息' },
-        ],
-      }
+    const data: FinancialsData = {
+      symbol: String(symbol),
+      market,
+      earningsDate: financials?.earningsDate ?? chain.analysis.reportPeriod ?? null,
+      epsActual: financials?.epsActual ?? chain.analysis.metrics.eps ?? null,
+      epsEstimate: financials?.epsEstimate ?? null,
+      epsSurprise: financials?.epsSurprise ?? null,
+      revenue: financials?.revenue ?? chain.analysis.metrics.revenue ?? null,
+      netProfit: financials?.netProfit ?? chain.analysis.metrics.netProfit ?? null,
+      revenueGrowth: financials?.revenueGrowth ?? chain.analysis.metrics.revenueGrowth ?? null,
+      earningsGrowth: financials?.earningsGrowth ?? chain.analysis.metrics.netProfitGrowth ?? null,
+      source: financials?.source ?? (documents.length ? 'public-web-financial-documents' : 'financial-analysis-chain'),
+      note: financials?.note,
+      analysis: chain.analysis,
+      documents,
+      chain: {
+        provider: chain.provider,
+        degraded: chain.degraded,
+        ...(chain.error ? { error: chain.error } : {}),
+      },
     }
 
-    return {
-      skillName: 'stock.getFinancials',
-      ok: false,
-      error: '美股/港股财报需通过搜索引擎查找',
-      needsFollowUp: true,
-      suggestedSkills: [
-        { name: 'web.search', args: { query: researchQuery, ...(sourceHints.length ? { sourceHints } : {}), limit: 5 }, reason: '结构化财报不可用，按模型提供的检索语句补充公开信息' },
-      ],
-    }
+    return { skillName: 'stock.getFinancials', ok: true, data }
   },
 }

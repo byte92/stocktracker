@@ -9,7 +9,7 @@ import { nextApiUrls } from '@/lib/api/endpoints'
 import { formatProbabilityScenario } from '@/lib/ai/display'
 import { useI18n } from '@/lib/i18n'
 import { useStockStore } from '@/store/useStockStore'
-import type { AiAnalysisHistoryRecord, AiAnalysisResult, Stock } from '@/types'
+import type { AiAnalysisResult, Stock } from '@/types'
 
 const AI_ANALYSIS_UNAVAILABLE_MESSAGE = '服务暂时不可用，请稍后重试或点击重新分析。'
 
@@ -49,12 +49,12 @@ export default function StockAnalysisPanel({ stock }: { stock: Stock }) {
           limit: '1',
         })
         const res = await fetch(nextApiUrls.ai.history(params), { signal: controller.signal })
-        const data = await readJsonResponse<{ records?: AiAnalysisHistoryRecord[] }>(res, {
+        const data = await readJsonResponse<{ records?: Array<{ result?: AiAnalysisResult }> }>(res, {
           fallbackMessage: t('读取标的 AI 历史失败'),
           unavailableMessage: t(AI_ANALYSIS_UNAVAILABLE_MESSAGE),
         })
-        const latest = (data.records as AiAnalysisHistoryRecord[] | undefined)?.[0]
-        if (latest) {
+        const latest = data.records?.[0]
+        if (latest?.result) {
           setResult(latest.result)
           setRestoredFromHistory(true)
         }

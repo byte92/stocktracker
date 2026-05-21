@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { MessageCircle } from 'lucide-react'
+import { BarChart3, MessageCircle } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import PortfolioAnalysisCard from '@/components/ai/PortfolioAnalysisCard'
 import AiStockNavigator from '@/components/ai/AiStockNavigator'
@@ -28,6 +28,18 @@ export default function AiPage() {
             <Button type="button">
               <MessageCircle className="mr-2 h-4 w-4" />
               {t('进入对话')}
+            </Button>
+          </Link>
+        </section>
+        <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-semibold text-foreground">{t('财报分析')}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{t('使用 LangChain 子链整理财报指标、亮点、风险、来源和缺失数据。')}</div>
+          </div>
+          <Link href="/ai/financials">
+            <Button type="button" variant="outline">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              {t('进入财报分析')}
             </Button>
           </Link>
         </section>
