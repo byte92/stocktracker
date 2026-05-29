@@ -141,13 +141,19 @@ export function createServerManager(options: ServerManagerOptions): ServerManage
       }
     }
 
+    // Only pass system env vars, not project .env.local
     const env = {
-      ...process.env,
-      ...userEnv,
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      USERPROFILE: process.env.USERPROFILE,
+      APPDATA: process.env.APPDATA,
+      LOCALAPPDATA: process.env.LOCALAPPDATA,
+      XDG_DATA_HOME: process.env.XDG_DATA_HOME,
+      NODE_ENV: 'production' as const,
       HOSTNAME: '127.0.0.1',
       PORT: String(port),
-      NODE_ENV: 'production' as const,
       FINANCE_SQLITE_PATH: path.join(options.userDataPath, 'finance.sqlite'),
+      ...userEnv,
     }
 
     // Use system Node.js instead of Electron's built-in Node
