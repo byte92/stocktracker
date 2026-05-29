@@ -8,13 +8,14 @@
 ![pnpm](https://img.shields.io/badge/pnpm-10.x-F69220?logo=pnpm&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-desktop-47848F?logo=electron&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 
 StockTracker 是一个本地优先的个人投资记录、组合核算和 AI 投研工作台。
 
 它帮助你记录交易、核算真实持仓成本、跟踪行情和收益，并让 AI Agent 基于你的真实持仓、交易记录和公开市场数据做克制的投研分析。数据默认保存在本机 SQLite，不需要账号，不默认上传到云端。
 
-[快速开始](#快速开始) · [Docker 运行](#docker-运行) · [核心能力](#核心能力) · [AI Agent](#ai-agent) · [文档](#文档) · [免责声明](#免责声明)
+[快速开始](#快速开始) · [桌面客户端](#桌面客户端-) · [Docker 运行](#docker-运行) · [核心能力](#核心能力) · [AI Agent](#ai-agent) · [文档](#文档) · [免责声明](#免责声明)
 
 ## 截图与演示
 
@@ -81,6 +82,7 @@ StockTracker 不适合：
 ### 自部署与工程化 🧰
 
 - 使用 pnpm，项目会阻止 npm/yarn 安装以保持 lockfile 一致。
+- 支持 Electron 桌面客户端（macOS / Windows），下载安装即用。
 - 支持 Docker / Docker Compose 本地运行。
 - 支持中文 / 英文 UI 切换，语言偏好保存在浏览器本地。
 - 支持 OpenAI-compatible 和 Anthropic-compatible 模型服务。
@@ -108,6 +110,47 @@ pnpm dev
 `pnpm dev` 默认使用 `3218`，如果端口被占用会自动向后查找可用端口，并在终端输出实际地址。建议启动后先完成 AI 模型配置，以启用对话、组合分析、标的分析和大盘分析等核心体验。
 
 更多开发、环境变量、数据库和测试说明见 [开发指南](./docs/DEVELOPMENT.md)。
+
+## 桌面客户端 🖥️
+
+不需要命令行或 Docker 环境，下载安装即可使用。
+
+### 下载安装
+
+前往 [GitHub Releases](https://github.com/byte92/finance_sys/releases) 下载对应平台的安装包：
+
+| 平台 | 格式 | 安装方式 |
+| --- | --- | --- |
+| macOS | `.dmg` | 双击打开，拖拽到 Applications |
+| Windows | `.exe` | 运行安装向导 |
+
+首次打开会引导配置 AI 服务（可跳过），数据保存在本地，不需要账号。
+
+### 本地构建
+
+如需从源码构建桌面客户端：
+
+```bash
+# macOS
+pnpm electron:build:mac
+
+# Windows
+pnpm electron:build:win
+```
+
+构建产物在 `dist-electron/` 目录下。
+
+开发模式调试：
+
+```bash
+# 先构建 Next.js standalone
+pnpm build
+
+# 启动 Electron 开发模式
+pnpm electron:dev
+```
+
+更多说明见 [Electron 桌面客户端设计](./docs/superpowers/specs/2026-05-29-electron-desktop-client-design.md)。
 
 ## AI 模型配置 🔑
 
@@ -165,6 +208,7 @@ StockTracker 的 AI 不是通用聊天机器人，而是围绕个人持仓和股
 ## 技术栈 🧱
 
 - Next.js App Router + React + TypeScript
+- Electron（桌面客户端）
 - Zustand
 - SQLite + better-sqlite3
 - Tailwind CSS
@@ -194,6 +238,7 @@ flowchart TB
   Skills --> DataSources
   Agent --> LLM["OpenAI / Anthropic 兼容模型服务"]
 
+  Electron["Electron 桌面客户端"] --> |"子进程"| App
   Docker["Docker / Docker Compose"] --> App
   Docker --> SQLite
 ```
