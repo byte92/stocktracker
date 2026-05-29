@@ -98,7 +98,7 @@ export function createServerManager(options: ServerManagerOptions): ServerManage
       ...process.env,
       HOSTNAME: '127.0.0.1',
       PORT: String(port),
-      NODE_ENV: 'production',
+      NODE_ENV: 'production' as const,
       FINANCE_SQLITE_PATH: path.join(options.userDataPath, 'finance.sqlite'),
     }
 
