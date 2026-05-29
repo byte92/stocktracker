@@ -61,3 +61,9 @@ docker/data/*.log
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# electron compiled output
+electron/main.js
+electron/preload.js
+electron/server.js
+electron/updater.js

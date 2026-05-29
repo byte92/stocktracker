@@ -13,10 +13,10 @@
     "start": "next start -p 3218",
     "test": "tsx --test tests/**/*.test.ts",
     "test:external": "tsx --test tests/external-apis.test.ts",
-    "electron:dev": "electron .",
-    "electron:build": "pnpm build && electron-builder",
-    "electron:build:mac": "pnpm build && electron-builder --mac",
-    "electron:build:win": "pnpm build && electron-builder --win"
+    "electron:dev": "tsc -p electron/tsconfig.json && electron .",
+    "electron:build": "pnpm build && tsc -p electron/tsconfig.json && electron-builder",
+    "electron:build:mac": "pnpm build && tsc -p electron/tsconfig.json && electron-builder --mac",
+    "electron:build:win": "pnpm build && tsc -p electron/tsconfig.json && electron-builder --win"
   },
   "keywords": [
     "portfolio",
