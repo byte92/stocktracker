@@ -35,6 +35,8 @@ metadata:
       - lib/agent/skills/stock.ts
       - lib/agent/chains/financialAnalysis.ts
       - lib/agent/financials/schema.ts
+      - lib/external/aShare/index.ts
+      - lib/external/globalStock/index.ts
       - lib/agent/skills/web.ts
 ---
 
@@ -42,7 +44,7 @@ metadata:
 
 当用户询问持仓或未持仓股票的财报、年报、季报、中报、业绩、营收、利润、EPS、现金流、负债、估值是否匹配业绩时使用。
 
-如果用户手动上传财报文件，优先使用上传文件内容。没有上传文件时，A 股优先读取结构化财务数据源；结构化数据不足时会通过受控公开搜索补充资料。OpenAI-compatible 配置下优先使用 LangChain 财报分析子链生成结构化 `analysis`；其他模型配置回退到现有 JSON 补全能力。
+如果用户手动上传财报文件，优先使用上传文件内容。没有上传文件时，A 股优先读取新浪财报三表、东财个股基本面、东财研报、同花顺一致预期 EPS 和巨潮公告；港股/美股优先读取东财三表、东财关键指标、Yahoo 关键指标、分析师预期、机构持仓，美股额外读取 SEC Filing 和 XBRL companyfacts；结构化数据不足时会通过受控公开搜索补充资料。OpenAI-compatible 配置下优先使用 LangChain 财报分析子链生成结构化 `analysis`；其他模型配置回退到现有 JSON 补全能力。
 
 # 不适用场景
 

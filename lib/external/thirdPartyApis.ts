@@ -25,13 +25,30 @@ export const THIRD_PARTY_API_BASES = {
   exchangeRateLatestUsd: 'https://api.exchangerate-api.com/v4/latest/USD',
   googleNewsRss: 'https://news.google.com/rss/search',
   nasdaqQuote: 'https://api.nasdaq.com/api/quote',
+  cninfoAnnouncementQuery: 'https://www.cninfo.com.cn/new/hisAnnouncement/query',
+  eastmoneyDatacenter: 'https://datacenter-web.eastmoney.com/api/data/v1/get',
+  eastmoneyReportList: 'https://reportapi.eastmoney.com/report/list',
+  eastmoneySearch: 'https://searchapi.eastmoney.com/api/suggest/get',
+  eastmoneyStockList: 'https://push2.eastmoney.com/api/qt/clist/get',
+  eastmoneyStockGet: 'https://push2.eastmoney.com/api/qt/stock/get',
+  eastmoneyStockFundFlow: 'https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get',
+  secCompanyTickers: 'https://www.sec.gov/files/company_tickers.json',
+  secData: 'https://data.sec.gov',
   sinaFinanceProfitStatement: 'https://vip.stock.finance.sina.com.cn/corp/go.php/vFD_ProfitStatement/stockid',
+  sinaFinanceReport2022: 'https://quotes.sina.cn/cn/api/openapi.php/CompanyFinanceService.getFinanceReport2022',
+  sinaHq: 'https://hq.sinajs.cn/list',
   stooqDaily: 'https://stooq.com/q/d/l/',
   stooqQuote: 'https://stooq.com/q/l/',
+  thsWorth: 'https://basic.10jqka.com.cn/new',
   tencentFqKline: 'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get',
   tencentMinuteKline: 'https://ifzq.gtimg.cn/appstock/app/kline/mkline',
   tencentQuote: 'https://qt.gtimg.cn',
   tencentSmartbox: 'https://smartbox.gtimg.cn/s3/',
+  yahooCrumb: 'https://query2.finance.yahoo.com/v1/test/getcrumb',
+  yahooFc: 'https://fc.yahoo.com',
+  yahooFinanceSearch: 'https://query2.finance.yahoo.com/v1/finance/search',
+  yahooOptions: 'https://query2.finance.yahoo.com/v7/finance/options',
+  yahooQuoteSummary: 'https://query2.finance.yahoo.com/v10/finance/quoteSummary',
   yahooChart: 'https://query1.finance.yahoo.com/v8/finance/chart',
   yahooQuote: [
     'https://query1.finance.yahoo.com/v7/finance/quote',
@@ -86,14 +103,22 @@ export const THIRD_PARTY_WEB_FETCH_ALLOWED_HOSTS = [
   'www.alphavantage.co',
   'push2.eastmoney.com',
   'data.eastmoney.com',
+  'datacenter-web.eastmoney.com',
   'emweb.securities.eastmoney.com',
   'datacenter.eastmoney.com',
+  'reportapi.eastmoney.com',
+  'searchapi.eastmoney.com',
+  'push2his.eastmoney.com',
+  'data.sec.gov',
+  'www.sec.gov',
   'www.cninfo.com.cn',
   'api.exchangerate-api.com',
   'news.google.com',
   'vip.stock.finance.sina.com.cn',
+  'quotes.sina.cn',
   'hq.sinajs.cn',
   'money.finance.sina.com.cn',
+  'basic.10jqka.com.cn',
   'api.jiejiariapi.com',
 ] as const
 
@@ -140,8 +165,26 @@ export const thirdPartyApiUrls = {
       fromdate: fromDate,
     })
   },
+  cninfoAnnouncementQuery() {
+    return THIRD_PARTY_API_BASES.cninfoAnnouncementQuery
+  },
+  eastmoneyDatacenter(params: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    return withQuery(THIRD_PARTY_API_BASES.eastmoneyDatacenter, params)
+  },
+  eastmoneyReportList(params: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    return withQuery(THIRD_PARTY_API_BASES.eastmoneyReportList, params)
+  },
+  eastmoneyStockGet(params: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    return withQuery(THIRD_PARTY_API_BASES.eastmoneyStockGet, params)
+  },
+  eastmoneyStockFundFlow(params: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    return withQuery(THIRD_PARTY_API_BASES.eastmoneyStockFundFlow, params)
+  },
   sinaProfitStatement(symbol: string) {
     return `${THIRD_PARTY_API_BASES.sinaFinanceProfitStatement}/${encodeURIComponent(symbol)}/ctrl/part/displaytype/4.phtml`
+  },
+  sinaFinanceReport2022(params: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    return withQuery(THIRD_PARTY_API_BASES.sinaFinanceReport2022, params)
   },
   stooqDailyDownload(symbol: string) {
     return withQuery(THIRD_PARTY_API_BASES.stooqDaily, { s: symbol, i: 'd' })
@@ -162,10 +205,48 @@ export const thirdPartyApiUrls = {
   tencentSmartbox(query: string) {
     return withQuery(THIRD_PARTY_API_BASES.tencentSmartbox, { t: 'all', q: query })
   },
+  thsWorth(code: string) {
+    return `${THIRD_PARTY_API_BASES.thsWorth}/${encodeURIComponent(code)}/worth.html`
+  },
   yahooChart(symbol: string, range = '1d', interval = '1d') {
     return withQuery(`${THIRD_PARTY_API_BASES.yahooChart}/${encodeURIComponent(symbol)}`, { range, interval })
   },
+  yahooCrumb() {
+    return THIRD_PARTY_API_BASES.yahooCrumb
+  },
+  yahooFc() {
+    return THIRD_PARTY_API_BASES.yahooFc
+  },
+  yahooFinanceSearch(params: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    return withQuery(THIRD_PARTY_API_BASES.yahooFinanceSearch, params)
+  },
+  yahooOptions(symbol: string, params?: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    const base = `${THIRD_PARTY_API_BASES.yahooOptions}/${encodeURIComponent(symbol)}`
+    return params ? withQuery(base, params) : base
+  },
+  yahooQuoteSummary(symbol: string, params: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    return withQuery(`${THIRD_PARTY_API_BASES.yahooQuoteSummary}/${encodeURIComponent(symbol)}`, params)
+  },
   yahooQuoteUrls(query: string) {
     return THIRD_PARTY_API_BASES.yahooQuote.map((baseUrl) => `${baseUrl}?${query}`)
+  },
+  eastmoneySearch(params: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    return withQuery(THIRD_PARTY_API_BASES.eastmoneySearch, params)
+  },
+  eastmoneyStockList(params: URLSearchParams | Record<string, string | number | boolean | null | undefined>) {
+    return withQuery(THIRD_PARTY_API_BASES.eastmoneyStockList, params)
+  },
+  secCompanyTickers() {
+    return THIRD_PARTY_API_BASES.secCompanyTickers
+  },
+  secSubmissions(cik: string) {
+    return `${THIRD_PARTY_API_BASES.secData}/submissions/CIK${encodeURIComponent(cik)}.json`
+  },
+  secCompanyFacts(cik: string) {
+    return `${THIRD_PARTY_API_BASES.secData}/api/xbrl/companyfacts/CIK${encodeURIComponent(cik)}.json`
+  },
+  sinaHq(symbols: string | string[]) {
+    const list = Array.isArray(symbols) ? symbols.join(',') : symbols
+    return `${THIRD_PARTY_API_BASES.sinaHq}=${list}`
   },
 } as const

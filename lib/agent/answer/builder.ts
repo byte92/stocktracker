@@ -243,6 +243,45 @@ export function buildAgentAnswerDraft(plan: AgentPlan, skillResults: AgentSkillR
     }
   }
 
+  for (const result of findResults(skillResults, 'stock.getAshareSignals')) {
+    const data = getData(result)
+    if (!data) continue
+    addItem(facts, 'A股信号数据', {
+      symbol: data.symbol,
+      dragonTiger: isRecord(data.dragonTiger) ? {
+        records: Array.isArray(data.dragonTiger.records) ? data.dragonTiger.records.slice(0, 5) : [],
+        seats: data.dragonTiger.seats,
+      } : null,
+      lockupExpiry: Array.isArray(data.lockupExpiry) ? data.lockupExpiry.slice(0, 5) : [],
+      marginTrading: Array.isArray(data.marginTrading) ? data.marginTrading.slice(0, 5) : [],
+      blockTrades: Array.isArray(data.blockTrades) ? data.blockTrades.slice(0, 5) : [],
+      holderChanges: Array.isArray(data.holderChanges) ? data.holderChanges.slice(0, 5) : [],
+      dividends: Array.isArray(data.dividends) ? data.dividends.slice(0, 5) : [],
+      fundFlow120d: Array.isArray(data.fundFlow120d) ? data.fundFlow120d.slice(-20) : [],
+    }, 'stock.getAshareSignals', 'A 股信号来自公开数据源，适合用于资金面、筹码和事件风险分析；缺失数组代表对应来源未返回数据，不应编造。')
+  }
+
+  for (const result of findResults(skillResults, 'stock.getGlobalSignals')) {
+    const data = getData(result)
+    if (!data) continue
+    addItem(facts, '港美股扩展信号', {
+      target: data.target,
+      fundFlow: Array.isArray(data.fundFlow) ? data.fundFlow.slice(-20) : [],
+      options: isRecord(data.options) ? {
+        underlyingPrice: data.options.underlyingPrice,
+        expirationDates: data.options.expirationDates,
+        calls: Array.isArray(data.options.calls) ? data.options.calls.slice(0, 10) : [],
+        puts: Array.isArray(data.options.puts) ? data.options.puts.slice(0, 10) : [],
+      } : null,
+      secFilings: isRecord(data.secFilings) ? {
+        companyName: data.secFilings.companyName,
+        filings: Array.isArray(data.secFilings.filings) ? data.secFilings.filings.slice(0, 10) : [],
+      } : null,
+      news: Array.isArray(data.news) ? data.news.slice(0, 8) : [],
+      marketRank: data.marketRank,
+    }, 'stock.getGlobalSignals', '港美股扩展信号来自公开数据源；Yahoo/SEC/东财各来源可能独立为空，回答时要说明资料边界。')
+  }
+
   const portfolioSummary = getData(findResult(skillResults, 'portfolio.getSummary'))
   if (portfolioSummary) {
     addItem(facts, '组合标的数', portfolioSummary.stockCount, 'portfolio.getSummary')

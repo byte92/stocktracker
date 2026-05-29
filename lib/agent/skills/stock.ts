@@ -7,6 +7,8 @@ import { matchStocks } from '@/lib/agent/entity/stockMatcher'
 import { resolveSecurityCandidates } from '@/lib/agent/entity/securityResolver'
 import { webSearchSkill, type WebSearchResult } from '@/lib/agent/skills/search'
 import { fetchDailyCandles } from '@/lib/external/kline'
+import { fetchAShareFinancialContext, fetchAShareSignals, type AShareFinancialContext, type AShareSignals } from '@/lib/external/aShare'
+import { fetchGlobalFinancialContext, fetchGlobalStockSignals, type GlobalFinancialContext, type GlobalStockSignals } from '@/lib/external/globalStock'
 import { THIRD_PARTY_REQUEST_HEADERS, thirdPartyApiUrls } from '@/lib/external/thirdPartyApis'
 import { loggedFetch } from '@/lib/observability/fetch'
 import { cleanFinancialDisplayText, type FinancialAnalysis, type FinancialAnalysisInput } from '@/lib/agent/financials/schema'
@@ -268,11 +270,18 @@ export type LegacyFinancialsData = {
 export type FinancialsData = LegacyFinancialsData & {
   analysis: FinancialAnalysis
   documents: FinancialAnalysisInput['documents']
+  aShareContext?: AShareFinancialContext
+  globalContext?: GlobalFinancialContext
   chain: {
     provider: 'langchain-openai' | 'native-json'
     degraded: boolean
     error?: string
   }
+}
+
+function stringifyCompact(value: unknown, maxLength = 1200) {
+  const text = JSON.stringify(value, null, 2)
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text
 }
 
 function parseMoneyWan(value: string | undefined) {
@@ -384,6 +393,132 @@ function normalizeSearchDocuments(result: WebSearchResult | undefined): Financia
     .slice(0, 5)
 }
 
+function normalizeAShareFinancialDocuments(context: AShareFinancialContext): FinancialAnalysisInput['documents'] {
+  const documents: FinancialAnalysisInput['documents'] = []
+  if (context.stockInfo) {
+    documents.push({
+      title: `${context.stockInfo.name || context.stockInfo.code} 东财个股基本面`,
+      publisher: 'eastmoney-stock-info',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(context.stockInfo)),
+    })
+  }
+
+  for (const row of context.statements.profit.slice(0, 5)) {
+    documents.push({
+      title: `新浪利润表 ${row.reportDate ?? ''}`.trim(),
+      publisher: 'sina-finance-report2022',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(row.values)),
+    })
+  }
+  for (const row of context.statements.balance.slice(0, 3)) {
+    documents.push({
+      title: `新浪资产负债表 ${row.reportDate ?? ''}`.trim(),
+      publisher: 'sina-finance-report2022',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(row.values)),
+    })
+  }
+  for (const row of context.statements.cashflow.slice(0, 3)) {
+    documents.push({
+      title: `新浪现金流量表 ${row.reportDate ?? ''}`.trim(),
+      publisher: 'sina-finance-report2022',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(row.values)),
+    })
+  }
+
+  if (context.epsForecasts.length) {
+    documents.push({
+      title: '同花顺一致预期 EPS',
+      publisher: 'ths-worth',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(context.epsForecasts)),
+    })
+  }
+
+  for (const report of context.reports.slice(0, 5)) {
+    documents.push({
+      title: report.title,
+      url: report.pdfUrl ?? undefined,
+      publisher: report.orgName ?? report.source,
+      excerpt: cleanFinancialDisplayText(stringifyCompact({
+        publishDate: report.publishDate,
+        rating: report.rating,
+        industry: report.industry,
+        epsForecasts: report.epsForecasts,
+      })),
+    })
+  }
+
+  for (const announcement of context.announcements.slice(0, 5)) {
+    documents.push({
+      title: announcement.title,
+      url: announcement.url ?? undefined,
+      publisher: announcement.source,
+      excerpt: cleanFinancialDisplayText(stringifyCompact({
+        date: announcement.date,
+        type: announcement.type,
+      })),
+    })
+  }
+
+  return documents.filter((item) => item.title && item.excerpt).slice(0, 20)
+}
+
+function normalizeGlobalFinancialDocuments(context: GlobalFinancialContext): FinancialAnalysisInput['documents'] {
+  const documents: FinancialAnalysisInput['documents'] = []
+  documents.push({
+    title: `${context.target.name || context.target.code} 东财港美股财务指标`,
+    publisher: 'eastmoney-datacenter',
+    excerpt: cleanFinancialDisplayText(stringifyCompact({
+      target: context.target,
+      keyIndicators: context.keyIndicators.slice(0, 6),
+    })),
+  })
+  for (const statement of ['income', 'balance', 'cashflow'] as const) {
+    const rows = context.statements[statement].slice(0, 12)
+    if (!rows.length) continue
+    documents.push({
+      title: `东财${statement === 'income' ? '利润表' : statement === 'balance' ? '资产负债表' : '现金流量表'}`,
+      publisher: 'eastmoney-datacenter',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(rows)),
+    })
+  }
+  if (context.yahooKeyStatistics) {
+    documents.push({
+      title: 'Yahoo 关键估值和盈利指标',
+      publisher: 'yahoo-finance',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(context.yahooKeyStatistics)),
+    })
+  }
+  if (context.analystEstimates) {
+    documents.push({
+      title: 'Yahoo 分析师预期和评级趋势',
+      publisher: 'yahoo-finance',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(context.analystEstimates)),
+    })
+  }
+  if (context.institutionalHolders) {
+    documents.push({
+      title: 'Yahoo 机构持仓',
+      publisher: 'yahoo-finance',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(context.institutionalHolders)),
+    })
+  }
+  if (context.secFilings) {
+    documents.push({
+      title: 'SEC EDGAR Filing 列表',
+      publisher: 'sec-edgar',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(context.secFilings.filings.slice(0, 10))),
+    })
+  }
+  if (context.secCompanyFacts) {
+    documents.push({
+      title: 'SEC XBRL 结构化财务指标',
+      publisher: 'sec-edgar',
+      excerpt: cleanFinancialDisplayText(stringifyCompact(context.secCompanyFacts.metrics)),
+    })
+  }
+  return documents.filter((item) => item.title && item.excerpt).slice(0, 20)
+}
+
 async function fetchFinancialDocuments(query: string, sourceHints: string[], ctx: Parameters<AgentSkill<FinancialsInput, FinancialsData>['execute']>[1]) {
   const result = await webSearchSkill.execute({
     query,
@@ -486,13 +621,21 @@ export const stockGetFinancialsSkill: AgentSkill<FinancialsInput, FinancialsData
         ))
       : []
 
-    const [quote, financials] = await Promise.all([
+    const [quote, financials, aShareContext, globalContext] = await Promise.all([
       stockPriceService.getQuote(String(symbol), market).catch(() => null),
       market === 'A' ? fetchSinaAStockFinancials(String(symbol)).catch(() => null) : Promise.resolve(null),
+      market === 'A' ? fetchAShareFinancialContext(String(symbol)).catch(() => null) : Promise.resolve(null),
+      market === 'US' || market === 'HK' ? fetchGlobalFinancialContext(String(symbol), market).catch(() => null) : Promise.resolve(null),
     ])
+    const aShareDocuments = aShareContext ? normalizeAShareFinancialDocuments(aShareContext) : []
+    const globalDocuments = globalContext ? normalizeGlobalFinancialDocuments(globalContext) : []
     const searchQuery = buildFinancialSearchQuery(String(symbol), market, displayName, researchQuery)
     const documents = manualDocuments.length
       ? manualDocuments
+      : aShareDocuments.length
+      ? aShareDocuments
+      : globalDocuments.length
+      ? globalDocuments
       : financials
       ? []
       : await fetchFinancialDocuments(searchQuery, sourceHints, ctx).catch(() => [])
@@ -523,6 +666,8 @@ export const stockGetFinancialsSkill: AgentSkill<FinancialsInput, FinancialsData
       note: financials?.note,
       analysis: chain.analysis,
       documents,
+      ...(aShareContext ? { aShareContext } : {}),
+      ...(globalContext ? { globalContext } : {}),
       chain: {
         provider: chain.provider,
         degraded: chain.degraded,
@@ -531,5 +676,70 @@ export const stockGetFinancialsSkill: AgentSkill<FinancialsInput, FinancialsData
     }
 
     return { skillName: 'stock.getFinancials', ok: true, data }
+  },
+}
+
+export type AShareSignalsInput = {
+  symbol?: string
+  market?: Market
+  query?: string
+  keyword?: string
+  name?: string
+}
+
+export const stockGetAShareSignalsSkill: AgentSkill<AShareSignalsInput, AShareSignals> = {
+  name: 'stock.getAshareSignals',
+  description: '读取 A 股个股信号数据，包括龙虎榜、解禁、融资融券、大宗交易、股东户数、分红和 120 日资金流。',
+  inputSchema: { symbol: 'string', market: 'Market', query: 'string', keyword: 'string', name: 'string' },
+  requiredScopes: ['quote.read', 'network.fetch'],
+  async execute(args, ctx) {
+    let symbol = typeof args.symbol === 'string' ? args.symbol : ''
+    let market = typeof args.market === 'string' ? args.market as Market : undefined
+
+    if (!symbol) {
+      const query = String(args.query ?? args.keyword ?? args.name ?? '')
+      const candidate = (await resolveSecurityCandidates(query, ctx.stocks, 1))[0]
+      symbol = candidate?.code ?? ''
+      market = candidate?.market
+    }
+
+    if (!symbol) return { skillName: 'stock.getAshareSignals', ok: false, error: '缺少 A 股代码' }
+    if (market && market !== 'A') {
+      return { skillName: 'stock.getAshareSignals', ok: false, error: '该信号数据仅支持 A 股股票。' }
+    }
+
+    const data = await fetchAShareSignals(symbol)
+    return { skillName: 'stock.getAshareSignals', ok: true, data }
+  },
+}
+
+export type GlobalStockSignalsInput = {
+  symbol?: string
+  market?: Market
+  query?: string
+  keyword?: string
+  name?: string
+  includeMarketRank?: boolean
+}
+
+export const stockGetGlobalSignalsSkill: AgentSkill<GlobalStockSignalsInput, GlobalStockSignals> = {
+  name: 'stock.getGlobalSignals',
+  description: '读取港股/美股扩展信号，包括东财资金流、Yahoo 期权/新闻、SEC Filing，以及可选全市场排名。',
+  inputSchema: { symbol: 'string', market: 'Market', query: 'string', keyword: 'string', name: 'string', includeMarketRank: 'boolean' },
+  requiredScopes: ['quote.read', 'network.fetch'],
+  async execute(args, ctx) {
+    let symbol = typeof args.symbol === 'string' ? args.symbol : ''
+    let market = typeof args.market === 'string' ? args.market as Market : undefined
+    if (!symbol || !market) {
+      const query = String(args.query ?? args.keyword ?? args.name ?? symbol ?? '')
+      const candidate = (await resolveSecurityCandidates(query, ctx.stocks, 1))[0]
+      symbol = symbol || candidate?.code || ''
+      market = market || candidate?.market
+    }
+    if (!symbol || !market) return { skillName: 'stock.getGlobalSignals', ok: false, error: '缺少港股/美股代码或市场' }
+    if (market !== 'US' && market !== 'HK') return { skillName: 'stock.getGlobalSignals', ok: false, error: '该扩展信号仅支持港股和美股。' }
+    const data = await fetchGlobalStockSignals(symbol, market, { includeMarketRank: Boolean(args.includeMarketRank) })
+    if (!data) return { skillName: 'stock.getGlobalSignals', ok: false, error: '未获取到港美股扩展信号数据' }
+    return { skillName: 'stock.getGlobalSignals', ok: true, data }
   },
 }
