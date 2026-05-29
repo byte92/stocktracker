@@ -196,9 +196,9 @@ jobs:
           - 🤖 AI investing chat & analysis
           - 🔒 Local data storage, privacy-first
 
-          ### Changes (\${{ github.ref_name }})
+          ### Changes (${{ github.ref_name }})
 
-          \${COMMITS}
+          $COMMITS
 
           ### Checksums
 
