@@ -30,8 +30,8 @@ importers:
         specifier: ^2.0.0-alpha.42
         version: 2.0.0-alpha.42(@babel/runtime@7.29.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       better-sqlite3:
-        specifier: ^12.9.0
-        version: 12.9.0
+        specifier: ^12.10.0
+        version: 12.10.0
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
@@ -1257,9 +1257,9 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  better-sqlite3@12.9.0:
-    resolution: {integrity: sha512-wqUv4Gm3toFpHDQmaKD4QhZm3g1DjUBI0yzS4UBl6lElUmXFYdTQmmEDpAFa5o8FiFiymURypEnfVHzILKaxqQ==}
-    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x}
+  better-sqlite3@12.10.0:
+    resolution: {integrity: sha512-CyzaZRQKyHkB2ZInfTTl2nvT33EbDpjkLEbE8/Zck3Ll6O0qqvuGdrJ45HgtH+HykRg88ITY3AdreBGN70aBSQ==}
+    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x || 26.x}
 
   big.js@7.0.1:
     resolution: {integrity: sha512-iFgV784tD8kq4ccF1xtNMZnXeZzVuXWWM+ERFzKQjv+A5G9HC8CY3DuV45vgzFFcW+u2tIvmF95+AzWgs6BjCg==}
@@ -4180,7 +4180,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.25: {}
 
-  better-sqlite3@12.9.0:
+  better-sqlite3@12.10.0:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
