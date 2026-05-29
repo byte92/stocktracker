@@ -25,7 +25,7 @@ asarUnpack:
   - "**/node_modules/.pnpm/better-sqlite3*/**"
   - ".next/standalone/**"
 
-nativeRebuilder: true
+nativeRebuilder: legacy
 
 mac:
   category: public.app-category.finance
