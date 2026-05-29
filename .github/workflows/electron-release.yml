@@ -138,7 +138,51 @@ jobs:
           name: StockTracker ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
+          body: |
+            ## StockTracker 桌面客户端
+
+            本地优先的个人投资记录、组合核算和 AI 投研工作台。下载安装即可使用，不需要命令行或 Docker。
+
+            ### 安装说明
+
+            **macOS**：下载 `.dmg` 文件，双击打开，拖拽到 Applications 文件夹。首次打开如提示"无法验证开发者"，右键点击应用 → 打开 → 确认即可。
+
+            **Windows**：下载 `.exe` 安装包，运行安装向导。
+
+            首次打开会引导配置 AI 服务（可跳过），数据保存在本地，不需要账号。
+
+            ### 功能特性
+
+            - 📊 组合与收益核算（A 股、港股、美股、基金、加密资产）
+            - 📈 实时行情、K 线、技术指标
+            - 🤖 AI 投研对话与分析
+            - 🔒 数据本地存储，隐私安全
+
+            ---
+
+            ## StockTracker Desktop Client
+
+            Local-first portfolio tracker and AI investing copilot. Download and install to get started — no command line or Docker required.
+
+            ### Installation
+
+            **macOS**: Download the `.dmg` file, double-click to open, and drag to Applications. If you see "can't be opened because it is from an unidentified developer", right-click the app → Open → Open Anyway.
+
+            **Windows**: Download the `.exe` installer and follow the setup wizard.
+
+            On first launch, you'll be guided to configure AI services (can be skipped). Data is stored locally, no account required.
+
+            ### Features
+
+            - 📊 Portfolio & PnL tracking (A-shares, HK, US, funds, crypto)
+            - 📈 Live quotes, K-line charts, technical indicators
+            - 🤖 AI investing chat & analysis
+            - 🔒 Local data storage, privacy-first
+
+            ### Checksums
+
+            SHA-256 checksums are available in the release assets.
           files: |
             release-artifacts/**/*.dmg
             release-artifacts/**/*.exe
