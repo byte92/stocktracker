@@ -43,13 +43,22 @@ function createMainWindow(): BrowserWindow {
     minWidth: 1024,
     minHeight: 768,
     title: 'StockTracker',
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: 'hidden',
+    trafficLightPosition: { x: 12, y: 6 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
     show: false,
+  })
+
+  // Notify renderer about maximize state changes
+  win.on('maximize', () => {
+    win.webContents.send('window-maximized-changed', true)
+  })
+  win.on('unmaximize', () => {
+    win.webContents.send('window-maximized-changed', false)
   })
 
   // Handle external links - open in system browser
@@ -122,6 +131,28 @@ async function main(): Promise<void> {
   ipcMain.handle('restart-app', () => {
     app.relaunch()
     app.exit(0)
+  })
+
+  // Window control IPC handlers
+  ipcMain.handle('window-minimize', () => {
+    const win = BrowserWindow.getFocusedWindow()
+    win?.minimize()
+  })
+  ipcMain.handle('window-maximize', () => {
+    const win = BrowserWindow.getFocusedWindow()
+    if (win?.isMaximized()) {
+      win.unmaximize()
+    } else {
+      win?.maximize()
+    }
+  })
+  ipcMain.handle('window-close', () => {
+    const win = BrowserWindow.getFocusedWindow()
+    win?.close()
+  })
+  ipcMain.handle('window-is-maximized', () => {
+    const win = BrowserWindow.getFocusedWindow()
+    return win?.isMaximized() ?? false
   })
 
   // Show onboarding if first run
