@@ -40,8 +40,12 @@ jobs:
           AI_API_KEY: placeholder-for-build
           FINANCE_SQLITE_PATH: ${{ runner.temp }}/finance.sqlite
 
-      - name: Copy static assets to standalone
-        run: cp -r .next/static .next/standalone/.next/static
+      - name: Prepare server files
+        run: |
+          mkdir -p server
+          cp -r .next/standalone/* server/
+          mkdir -p server/.next/static
+          cp -r .next/static/* server/.next/static/
 
       - name: Compile Electron TypeScript
         run: npx tsc -p electron/tsconfig.json
@@ -87,8 +91,12 @@ jobs:
           AI_API_KEY: placeholder-for-build
           FINANCE_SQLITE_PATH: ${{ runner.temp }}/finance.sqlite
 
-      - name: Copy static assets to standalone
-        run: xcopy .next\\static .next\\standalone\\.next\\static /E /I /Y
+      - name: Prepare server files
+        run: |
+          mkdir server
+          xcopy .next\standalone\* server\ /E /I /Y
+          mkdir server\.next\static
+          xcopy .next\static\* server\.next\static\ /E /I /Y
 
       - name: Compile Electron TypeScript
         run: npx tsc -p electron/tsconfig.json
