@@ -17,13 +17,20 @@ function getConfigPath(): string {
   return path.join(getUserDataPath(), '.env.local')
 }
 
-function isFirstRun(): boolean {
-  // Check if .env.local exists
+function getOnboardingDonePath(): string {
+  return path.join(getUserDataPath(), '.onboarding-done')
+}
+
+function needsOnboarding(): boolean {
+  // Already completed or skipped onboarding before
+  if (fs.existsSync(getOnboardingDonePath())) return false
+  // Already have .env.local
   if (fs.existsSync(getConfigPath())) return false
-  // Check if SQLite database exists with AI config
-  const dbPath = path.join(getUserDataPath(), 'finance.sqlite')
-  if (fs.existsSync(dbPath)) return false
   return true
+}
+
+function markOnboardingDone(): void {
+  fs.writeFileSync(getOnboardingDonePath(), new Date().toISOString(), 'utf-8')
 }
 
 function writeEnvLocal(config: {
@@ -48,17 +55,14 @@ function createMainWindow(): BrowserWindow {
     minWidth: 1024,
     minHeight: 768,
     title: 'StockTracker',
-    titleBarStyle: 'hidden',
-    trafficLightPosition: { x: 12, y: 6 },
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
-    show: false,
   })
 
-  // Notify renderer about maximize state changes
   win.on('maximize', () => {
     win.webContents.send('window-maximized-changed', true)
   })
@@ -66,7 +70,6 @@ function createMainWindow(): BrowserWindow {
     win.webContents.send('window-maximized-changed', false)
   })
 
-  // Handle external links - open in system browser
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
@@ -75,12 +78,14 @@ function createMainWindow(): BrowserWindow {
   return win
 }
 
-function showOnboarding(): Promise<void> {
+function showOnboarding(parent: BrowserWindow): Promise<void> {
   return new Promise((resolve) => {
     const win = new BrowserWindow({
-      width: 600,
-      height: 520,
+      parent,
+      width: 560,
+      height: 500,
       resizable: false,
+      modal: true,
       titleBarStyle: 'hiddenInset',
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
@@ -97,18 +102,19 @@ function showOnboarding(): Promise<void> {
     })
 
     ipcMain.handle('finish-onboarding', () => {
+      markOnboardingDone()
       win.close()
       resolve()
     })
 
     win.on('closed', () => {
+      markOnboardingDone()
       resolve()
     })
   })
 }
 
 async function main(): Promise<void> {
-  // macOS: keep app running when all windows closed
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
       app.quit()
@@ -121,7 +127,6 @@ async function main(): Promise<void> {
     }
   })
 
-  // Graceful shutdown - stop the Next.js server
   app.on('before-quit', async () => {
     if (serverManager) {
       await serverManager.stop()
@@ -138,34 +143,22 @@ async function main(): Promise<void> {
     app.exit(0)
   })
 
-  // Window control IPC handlers
   ipcMain.handle('window-minimize', () => {
-    const win = BrowserWindow.getFocusedWindow()
-    win?.minimize()
+    BrowserWindow.getFocusedWindow()?.minimize()
   })
   ipcMain.handle('window-maximize', () => {
     const win = BrowserWindow.getFocusedWindow()
-    if (win?.isMaximized()) {
-      win.unmaximize()
-    } else {
-      win?.maximize()
-    }
+    if (win?.isMaximized()) win.unmaximize()
+    else win?.maximize()
   })
   ipcMain.handle('window-close', () => {
-    const win = BrowserWindow.getFocusedWindow()
-    win?.close()
+    BrowserWindow.getFocusedWindow()?.close()
   })
   ipcMain.handle('window-is-maximized', () => {
-    const win = BrowserWindow.getFocusedWindow()
-    return win?.isMaximized() ?? false
+    return BrowserWindow.getFocusedWindow()?.isMaximized() ?? false
   })
 
-  // Show onboarding if first run
-  if (isFirstRun()) {
-    await showOnboarding()
-  }
-
-  // Start Next.js server
+  // Start server immediately (don't wait for onboarding)
   serverManager = createServerManager({
     userDataPath: getUserDataPath(),
   })
@@ -176,20 +169,15 @@ async function main(): Promise<void> {
     const { port } = await serverManager.start()
     await mainWindow.loadURL(`http://127.0.0.1:${port}`)
   } catch (error) {
-    // Show error page if server fails to start
     const errorMessage = error instanceof Error ? error.message : String(error)
     await mainWindow.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(`
         <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"></head>
-        <body style="font-family: -apple-system, sans-serif; padding: 40px; text-align: center; background: #0f172a; color: #e2e8f0;">
-          <h1>启动失败</h1>
-          <p>StockTracker 服务未能启动。</p>
-          <pre style="background: #1e293b; padding: 16px; border-radius: 8px; text-align: left; color: #f87171; white-space: pre-wrap; word-break: break-all;">${errorMessage}</pre>
-          <p style="margin-top: 20px;">请尝试重启应用，或联系支持。</p>
-        </body>
-        </html>
+        <html><head><meta charset="utf-8"></head>
+        <body style="font-family:-apple-system,sans-serif;padding:40px;text-align:center;background:#0f172a;color:#e2e8f0">
+          <h1>启动失败</h1><p>StockTracker 服务未能启动。</p>
+          <pre style="background:#1e293b;padding:16px;border-radius:8px;text-align:left;color:#f87171;white-space:pre-wrap">${errorMessage}</pre>
+        </body></html>
       `)}`
     )
   }
@@ -197,7 +185,11 @@ async function main(): Promise<void> {
   mainWindow.show()
   mainWindow.focus()
 
-  // Setup auto-updater (production only)
+  // Show onboarding as modal overlay if needed (after main window is ready)
+  if (needsOnboarding()) {
+    await showOnboarding(mainWindow)
+  }
+
   if (!isDev) {
     setupAutoUpdater(mainWindow)
   }
