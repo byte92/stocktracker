@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { securityResolveSkill } from '@/lib/agent/skills/security'
-import { stockGetExternalQuoteSkill, stockGetFinancialsSkill } from '@/lib/agent/skills/stock'
+import { stockGetAShareSignalsSkill, stockGetExternalQuoteSkill, stockGetFinancialsSkill, stockGetGlobalSignalsSkill } from '@/lib/agent/skills/stock'
 import { stockPriceService } from '@/lib/StockPriceService'
 import type { AgentExecutionContext } from '@/lib/agent/types'
 import type { AiConfig } from '@/types'
@@ -105,4 +105,18 @@ test('stock.getFinancials rejects fund and ETF products', async () => {
   assert.match(fundResult.error ?? '', /没有公司财报/)
   assert.equal(etfResult.ok, false)
   assert.match(etfResult.error ?? '', /没有公司财报/)
+})
+
+test('stock.getAshareSignals rejects non A-share markets', async () => {
+  const result = await stockGetAShareSignalsSkill.execute({ symbol: 'AAPL', market: 'US' }, ctx)
+
+  assert.equal(result.ok, false)
+  assert.match(result.error ?? '', /仅支持 A 股/)
+})
+
+test('stock.getGlobalSignals rejects non global markets', async () => {
+  const result = await stockGetGlobalSignalsSkill.execute({ symbol: '601398', market: 'A' }, ctx)
+
+  assert.equal(result.ok, false)
+  assert.match(result.error ?? '', /仅支持港股和美股/)
 })
