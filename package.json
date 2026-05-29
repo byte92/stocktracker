@@ -2,7 +2,7 @@
   "name": "stocktracker",
   "version": "1.0.0",
   "description": "Local-first portfolio tracker and AI investing copilot.",
-  "main": "index.js",
+  "main": "electron/main.js",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "preinstall": "node scripts/only-pnpm.cjs",
@@ -12,7 +12,11 @@
     "build": "next build",
     "start": "next start -p 3218",
     "test": "tsx --test tests/**/*.test.ts",
-    "test:external": "tsx --test tests/external-apis.test.ts"
+    "test:external": "tsx --test tests/external-apis.test.ts",
+    "electron:dev": "electron .",
+    "electron:build": "pnpm build && electron-builder",
+    "electron:build:mac": "pnpm build && electron-builder --mac",
+    "electron:build:win": "pnpm build && electron-builder --win"
   },
   "keywords": [
     "portfolio",
