@@ -120,12 +120,16 @@ jobs:
         with:
           name: macos-builds
           path: release-artifacts
+          if-no-files-found: warn
+        continue-on-error: true
 
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
           name: windows-builds
           path: release-artifacts
+          if-no-files-found: warn
+        continue-on-error: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
