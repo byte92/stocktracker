@@ -7,7 +7,6 @@ import { BriefcaseBusiness, Bug, ChartNoAxesCombined, ChevronDown, ChevronLeft, 
 import { Button } from '@/components/ui/button'
 import FloatingAiChat from '@/components/ai/FloatingAiChat'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
-import TitleBar from '@/components/layout/TitleBar'
 import { useTheme } from '@/hooks/useTheme'
 import { useAiDebugMode } from '@/hooks/useAiDebugMode'
 import { useI18n } from '@/lib/i18n'
@@ -77,7 +76,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <TitleBar />
       <div className="min-h-screen">
         <aside
           className={`hidden lg:flex fixed inset-y-0 left-0 z-30 shrink-0 flex-col border-r border-border bg-card/70 backdrop-blur-md transition-[width] duration-200 ${

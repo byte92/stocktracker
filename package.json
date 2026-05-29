@@ -13,10 +13,10 @@
     "start": "next start -p 3218",
     "test": "tsx --test tests/**/*.test.ts",
     "test:external": "tsx --test tests/external-apis.test.ts",
-    "electron:dev": "tsc -p electron/tsconfig.json && electron .",
-    "electron:build": "pnpm build && tsc -p electron/tsconfig.json && electron-builder",
-    "electron:build:mac": "pnpm build && tsc -p electron/tsconfig.json && electron-builder --mac",
-    "electron:build:win": "pnpm build && tsc -p electron/tsconfig.json && electron-builder --win"
+    "electron:dev": "tsc -p electron/tsconfig.json && electron-rebuild -m .next/standalone && electron .",
+    "electron:build": "pnpm build && tsc -p electron/tsconfig.json && electron-rebuild -m .next/standalone && electron-builder",
+    "electron:build:mac": "pnpm build && tsc -p electron/tsconfig.json && electron-rebuild -m .next/standalone && electron-builder --mac",
+    "electron:build:win": "pnpm build && tsc -p electron/tsconfig.json && electron-rebuild -m .next/standalone && electron-builder --win"
   },
   "keywords": [
     "portfolio",
@@ -68,6 +68,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
+    "@electron/rebuild": "^4.0.4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/big.js": "^6.2.2",
     "@types/node": "^25.3.3",

@@ -10,6 +10,24 @@ const MAX_PORT_ATTEMPTS = 20
 const HEALTH_CHECK_INTERVAL_MS = 500
 const HEALTH_CHECK_TIMEOUT_MS = 30_000
 
+function getNodeBinary(): string {
+  // Try to find system Node.js (not Electron's built-in)
+  // This is needed because native modules like better-sqlite3
+  // are compiled for the system Node.js ABI, not Electron's
+  const { execSync } = require('node:child_process') as typeof import('node:child_process')
+  try {
+    const nodePath = execSync('which node', { encoding: 'utf-8' }).trim()
+    if (nodePath && !nodePath.includes('electron')) return nodePath
+  } catch {}
+  // Fallback to common paths
+  const candidates = ['/usr/local/bin/node', '/opt/homebrew/bin/node', '/usr/bin/node']
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p
+  }
+  // Last resort: use process.execPath (Electron's Node)
+  return process.execPath
+}
+
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = createServer()
@@ -80,7 +98,16 @@ export function createServerManager(options: ServerManagerOptions): ServerManage
     // In development: projectRoot/.next/standalone/server.js
     const isPackaged = app.isPackaged
     const appPath = isPackaged ? process.resourcesPath : process.cwd()
-    return path.join(appPath, '.next', 'standalone', 'server.js')
+    const standaloneDir = path.join(appPath, '.next', 'standalone')
+
+    // Ensure static assets are available in standalone directory
+    const staticSrc = path.join(appPath, '.next', 'static')
+    const staticDest = path.join(standaloneDir, '.next', 'static')
+    if (fs.existsSync(staticSrc) && !fs.existsSync(staticDest)) {
+      fs.cpSync(staticSrc, staticDest, { recursive: true })
+    }
+
+    return path.join(standaloneDir, 'server.js')
   }
 
   async function start(): Promise<{ port: number }> {
@@ -100,7 +127,11 @@ export function createServerManager(options: ServerManagerOptions): ServerManage
       FINANCE_SQLITE_PATH: path.join(options.userDataPath, 'finance.sqlite'),
     }
 
-    child = spawn(process.execPath, [serverScript], {
+    // Use system Node.js instead of Electron's built-in Node
+    // to avoid native module ABI mismatch (better-sqlite3 compiled for system Node)
+    const nodeBin = getNodeBinary()
+
+    child = spawn(nodeBin, [serverScript], {
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: path.dirname(serverScript),
