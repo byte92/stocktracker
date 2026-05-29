@@ -3,6 +3,7 @@ import { createServer } from 'node:net'
 import path from 'node:path'
 import fs from 'node:fs'
 import http from 'node:http'
+import { app } from 'electron'
 
 const DEFAULT_PORT = 3218
 const MAX_PORT_ATTEMPTS = 20
@@ -77,11 +78,8 @@ export function createServerManager(options: ServerManagerOptions): ServerManage
   function getServerScript(): string {
     // In packaged app: resources/.next/standalone/server.js
     // In development: projectRoot/.next/standalone/server.js
-    const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
-    const appPath =
-      typeof resourcesPath === 'string' && process.env.NODE_ENV !== 'development'
-        ? resourcesPath
-        : process.cwd()
+    const isPackaged = app.isPackaged
+    const appPath = isPackaged ? process.resourcesPath : process.cwd()
     return path.join(appPath, '.next', 'standalone', 'server.js')
   }
 
