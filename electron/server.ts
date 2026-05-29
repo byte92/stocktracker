@@ -100,8 +100,8 @@ export function createServerManager(options: ServerManagerOptions): ServerManage
     const appPath = isPackaged ? process.resourcesPath : process.cwd()
 
     if (isPackaged) {
-      // Packaged: server files are in resources/server/
-      return path.join(appPath, 'server', 'server.js')
+      // Packaged: server files are in resources/app/server/
+      return path.join(appPath, 'app', 'server', 'server.js')
     }
 
     // Development: use standalone directory
