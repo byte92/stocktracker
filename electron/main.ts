@@ -18,7 +18,12 @@ function getConfigPath(): string {
 }
 
 function isFirstRun(): boolean {
-  return !fs.existsSync(getConfigPath())
+  // Check if .env.local exists
+  if (fs.existsSync(getConfigPath())) return false
+  // Check if SQLite database exists with AI config
+  const dbPath = path.join(getUserDataPath(), 'finance.sqlite')
+  if (fs.existsSync(dbPath)) return false
+  return true
 }
 
 function writeEnvLocal(config: {
