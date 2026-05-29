@@ -14,7 +14,7 @@ import { SUPPORTED_MARKETS } from '@/config/defaults'
 import { nextApiUrls } from '@/lib/api/endpoints'
 import { THIRD_PARTY_API_EXAMPLES } from '@/lib/external/thirdPartyApis'
 import { useI18n } from '@/lib/i18n'
-import type { AiAnalysisLanguage, AiProvider, ExportData, Market } from '@/types'
+import type { AiAnalysisLanguage, AiProvider, Currency, ExportData, Market } from '@/types'
 
 type FeeField = 'commissionRate' | 'minCommission' | 'stampDutyRate' | 'transferFeeRate' | 'settlementFeeRate'
 type SectionId = 'basic' | 'ai' | 'preferences'
@@ -46,6 +46,8 @@ export default function SettingsContent({
   const [feeConfigs, setFeeConfigs] = useState(config.feeConfigs)
   const [aiConfig, setAiConfig] = useState(config.aiConfig)
   const [draftDisplayCurrency, setDraftDisplayCurrency] = useState(displayCurrency)
+  const [draftTotalCapitalAmount, setDraftTotalCapitalAmount] = useState(config.portfolio.totalCapital?.amount ? String(config.portfolio.totalCapital.amount) : '')
+  const [draftTotalCapitalCurrency, setDraftTotalCapitalCurrency] = useState<Currency>(config.portfolio.totalCapital?.currency ?? displayCurrency)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [saving, setSaving] = useState(false)
@@ -66,6 +68,8 @@ export default function SettingsContent({
     setFeeConfigs(config.feeConfigs)
     setAiConfig(config.aiConfig)
     setDraftDisplayCurrency(displayCurrency)
+    setDraftTotalCapitalAmount(config.portfolio.totalCapital?.amount ? String(config.portfolio.totalCapital.amount) : '')
+    setDraftTotalCapitalCurrency(config.portfolio.totalCapital?.currency ?? displayCurrency)
     setError('')
     setSuccessMessage('')
     setTestMessage('')
@@ -150,7 +154,15 @@ export default function SettingsContent({
     })
   }, [aiConfig, config.aiConfig])
 
-  const preferencesDirty = draftDisplayCurrency !== displayCurrency
+  const draftTotalCapital = useMemo(() => {
+    const amount = Number(draftTotalCapitalAmount)
+    return Number.isFinite(amount) && amount > 0
+      ? { amount, currency: draftTotalCapitalCurrency }
+      : null
+  }, [draftTotalCapitalAmount, draftTotalCapitalCurrency])
+
+  const portfolioDirty = JSON.stringify(draftTotalCapital) !== JSON.stringify(config.portfolio.totalCapital)
+  const preferencesDirty = draftDisplayCurrency !== displayCurrency || portfolioDirty
   const envAiConfigured = aiEnvStatus?.configured === true
   const displayedAiEnabled = envAiConfigured ? true : aiConfig.enabled
   const displayedAiProvider = envAiConfigured && aiEnvStatus?.provider ? aiEnvStatus.provider : aiConfig.provider
@@ -182,6 +194,9 @@ export default function SettingsContent({
         defaultMarket,
         feeConfigs,
         aiConfig,
+        portfolio: {
+          totalCapital: draftTotalCapital,
+        },
       })
       if (draftDisplayCurrency !== displayCurrency) {
         setDisplayCurrency(draftDisplayCurrency)
@@ -559,7 +574,7 @@ export default function SettingsContent({
               <Select
                 id="display-currency"
                 value={draftDisplayCurrency}
-                onChange={(e) => setDraftDisplayCurrency(e.target.value as 'CNY' | 'HKD' | 'USD' | 'USDT')}
+                onChange={(e) => setDraftDisplayCurrency(e.target.value as Currency)}
               >
                 <option value="CNY">CNY</option>
                 <option value="HKD">HKD</option>
@@ -569,6 +584,34 @@ export default function SettingsContent({
               <div className="text-xs text-muted-foreground">
                 {t('主题模式已迁回侧边栏底部，方便随时切换。')}
               </div>
+            </div>
+            <div className="space-y-1.5 max-w-48">
+              <Label htmlFor="total-capital">{t('总资金')}</Label>
+              <Input
+                id="total-capital"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder={t('不填写则不计算总仓位')}
+                value={draftTotalCapitalAmount}
+                onChange={(e) => setDraftTotalCapitalAmount(e.target.value)}
+              />
+              <div className="text-xs text-muted-foreground">
+                {t('用于计算总仓位和每个持仓占总资金的比例。')}
+              </div>
+            </div>
+            <div className="space-y-1.5 max-w-48">
+              <Label htmlFor="total-capital-currency">{t('总资金货币')}</Label>
+              <Select
+                id="total-capital-currency"
+                value={draftTotalCapitalCurrency}
+                onChange={(e) => setDraftTotalCapitalCurrency(e.target.value as Currency)}
+              >
+                <option value="CNY">CNY</option>
+                <option value="HKD">HKD</option>
+                <option value="USD">USD</option>
+                <option value="USDT">USDT</option>
+              </Select>
             </div>
           </div>
         ),

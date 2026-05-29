@@ -42,6 +42,10 @@ function normalizePayload(payload: Partial<StoredPayload> | null | undefined): S
         ...DEFAULT_APP_CONFIG.currency,
         ...(payload?.config?.currency ?? {}),
       },
+      portfolio: {
+        ...DEFAULT_APP_CONFIG.portfolio,
+        ...(payload?.config?.portfolio ?? {}),
+      },
     },
   };
 }
@@ -169,7 +173,25 @@ type SaveAiAgentRunInput = {
 };
 
 function parseAnalysisRow(row: Record<string, unknown>): AiAnalysisHistoryRecord {
+  const analysisType = String(row.analysis_type) as AiAnalysisHistoryRecord["type"]
   const rawResult = JSON.parse(String(row.result_json)) as Partial<AiAnalysisResult>
+  if (analysisType === 'financial') {
+    return {
+      id: String(row.id),
+      userId: String(row.user_id),
+      type: analysisType,
+      stockId: row.stock_id ? String(row.stock_id) : null,
+      stockCode: row.stock_code ? String(row.stock_code) : null,
+      stockName: row.stock_name ? String(row.stock_name) : null,
+      market: row.market ? (String(row.market) as Market) : null,
+      confidence: String(row.confidence) as AiAnalysisHistoryRecord["confidence"],
+      tags: JSON.parse(String(row.tags_json)) as string[],
+      result: rawResult as Record<string, unknown>,
+      generatedAt: String(row.generated_at),
+      createdAt: String(row.created_at),
+    };
+  }
+
   const normalizedResult: AiAnalysisResult = {
     generatedAt: rawResult.generatedAt ?? String(row.generated_at),
     cached: rawResult.cached ?? false,
@@ -197,7 +219,7 @@ function parseAnalysisRow(row: Record<string, unknown>): AiAnalysisHistoryRecord
   return {
     id: String(row.id),
     userId: String(row.user_id),
-    type: String(row.analysis_type) as AiAnalysisHistoryRecord["type"],
+    type: analysisType,
     stockId: row.stock_id ? String(row.stock_id) : null,
     stockCode: row.stock_code ? String(row.stock_code) : null,
     stockName: row.stock_name ? String(row.stock_name) : null,

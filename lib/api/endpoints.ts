@@ -23,6 +23,7 @@ export const NEXT_API_ROUTES = {
     chatRuns: '/api/ai/chat/runs',
     chatSessions: '/api/ai/chat/sessions',
     configStatus: '/api/ai/config/status',
+    financialAnalysis: '/api/ai/financial-analysis',
     history: '/api/ai/history',
     marketAnalysis: '/api/ai/market-analysis',
     portfolioAnalysis: '/api/ai/portfolio-analysis',
@@ -59,6 +60,9 @@ export const nextApiUrls = {
     },
     configStatus() {
       return NEXT_API_ROUTES.ai.configStatus
+    },
+    financialAnalysis() {
+      return NEXT_API_ROUTES.ai.financialAnalysis
     },
     history(params?: URLSearchParams | Record<string, QueryValue>) {
       return withQuery(NEXT_API_ROUTES.ai.history, params)

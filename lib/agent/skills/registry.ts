@@ -16,6 +16,8 @@ import {
   stockGetRecentTradesSkill,
   stockGetTechnicalSnapshotSkill,
   stockGetFinancialsSkill,
+  stockGetAShareSignalsSkill,
+  stockGetGlobalSignalsSkill,
   stockMatchSkill,
 } from '@/lib/agent/skills/stock'
 
@@ -38,6 +40,8 @@ const BUILTIN_SKILLS: AgentSkill<any, any>[] = [
   stockGetExternalQuoteSkill,
   stockGetTechnicalSnapshotSkill,
   stockGetFinancialsSkill,
+  stockGetAShareSignalsSkill,
+  stockGetGlobalSignalsSkill,
   tradePrepareRecordSkill,
   tradeCommitRecordSkill,
 ]

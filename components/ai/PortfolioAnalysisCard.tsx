@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Sparkles, RefreshCw, AlertTriangle, Clock } from 'lucide-react'
+import { Sparkles, AlertTriangle, Clock, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { describeClientRequestError, readJsonResponse } from '@/lib/api/client'
@@ -11,7 +11,7 @@ import { useI18n } from '@/lib/i18n'
 import { useStockStore } from '@/store/useStockStore'
 import type { AiAnalysisResult } from '@/types'
 
-const AI_ANALYSIS_UNAVAILABLE_MESSAGE = '服务暂时不可用，请稍后重试或点击强制刷新。'
+const AI_ANALYSIS_UNAVAILABLE_MESSAGE = '服务暂时不可用，请稍后重试或点击重新分析。'
 
 export default function PortfolioAnalysisCard({ compact = false }: { compact?: boolean }) {
   const { stocks, config, userId } = useStockStore()
@@ -65,7 +65,7 @@ export default function PortfolioAnalysisCard({ compact = false }: { compact?: b
     void loadLatestTodayResult()
   }, [userId])
 
-  const runAnalysis = async (forceRefresh = false) => {
+  const runAnalysis = async () => {
     setLoading(true)
     setError(null)
     try {
@@ -76,7 +76,8 @@ export default function PortfolioAnalysisCard({ compact = false }: { compact?: b
           userId,
           stocks,
           aiConfig: config.aiConfig,
-          forceRefresh,
+          totalCapital: config.portfolio.totalCapital,
+          forceRefresh: true,
         }),
       })
       const data = await readJsonResponse<{ result: AiAnalysisResult }>(res, {
@@ -102,13 +103,9 @@ export default function PortfolioAnalysisCard({ compact = false }: { compact?: b
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => runAnalysis(true)} disabled={loading || stocks.length === 0}>
-            <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            {t('强制刷新')}
-          </Button>
-          <Button size="sm" onClick={() => runAnalysis(false)} disabled={loading || stocks.length === 0}>
-            <Sparkles className="mr-1 h-3.5 w-3.5" />
-            {result ? t('重新分析') : t('开始分析')}
+          <Button size="sm" onClick={runAnalysis} disabled={loading || stocks.length === 0} aria-busy={loading}>
+            {loading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />}
+            {loading ? t('分析中...') : result ? t('重新分析') : t('开始分析')}
           </Button>
         </div>
       </div>
@@ -136,14 +133,20 @@ export default function PortfolioAnalysisCard({ compact = false }: { compact?: b
           {result && (
             <>
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{t('AI 总结')}</div>
-                      <PortfolioSnapshotAgeBadge generatedAt={result.generatedAt} now={now} />
-                    </div>
-                    <div className="mt-2 text-base font-medium text-foreground leading-7">{result.summary}</div>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{t('AI 总结')}</div>
+                    <PortfolioSnapshotAgeBadge generatedAt={result.generatedAt} now={now} />
+                  </div>
+                  <ConfidenceTag confidence={result.confidence} />
+                </div>
+
+                <div className="mt-3 text-base font-medium text-foreground leading-7">{result.summary}</div>
+
+                {(result.stance || result.actionPlan[0] || topRisks[0]) && (
+                  <div className="mt-4 rounded-lg border border-border/70 bg-background/60 p-3">
+                    <div className="mb-2 text-xs font-medium text-muted-foreground">{t('重点标签')}</div>
+                    <div className="flex flex-wrap gap-2">
                       {result.stance && (
                         <span className="rounded-full border border-primary/20 bg-background/70 px-2.5 py-1 text-xs text-foreground">
                           {t('当前判断：{value}', { value: result.stance })}
@@ -161,11 +164,7 @@ export default function PortfolioAnalysisCard({ compact = false }: { compact?: b
                       )}
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-xs text-muted-foreground">{t('信心')}</div>
-                    <div className="mt-1 text-sm font-semibold text-foreground">{t(formatConfidence(result.confidence))}</div>
-                  </div>
-                </div>
+                )}
                 <div className="mt-3 text-xs text-muted-foreground">
                   {t('生成于 {time} {cache}', { time: formatDateTime(result.generatedAt), cache: result.cached ? t('· 命中缓存') : '' })}
                 </div>
@@ -229,6 +228,21 @@ function PortfolioSnapshotAgeBadge({ generatedAt, now }: { generatedAt: string; 
     }`}>
       <Clock className="mr-1 h-3.5 w-3.5" />
       {label}
+    </span>
+  )
+}
+
+function ConfidenceTag({ confidence }: { confidence: AiAnalysisResult['confidence'] }) {
+  const { t } = useI18n()
+  const className = confidence === 'high'
+    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+    : confidence === 'low'
+      ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200'
+      : 'border-primary/25 bg-primary/10 text-primary'
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}>
+      {t('信心：{value}', { value: t(formatConfidence(confidence)) })}
     </span>
   )
 }

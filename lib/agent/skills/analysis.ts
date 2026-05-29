@@ -6,7 +6,7 @@ import { buildTechnicalIndicatorHistory, buildTechnicalIndicatorSnapshot } from 
 import { fetchDailyCandles } from '@/lib/external/kline'
 import { fetchStockNews } from '@/lib/external/news'
 import type { AgentSkill } from '@/lib/agent/types'
-import type { AiConfig, Market, NewsItem, Stock, TechnicalIndicatorHistory, TechnicalIndicatorSnapshot } from '@/types'
+import type { AiConfig, AppConfig, Market, NewsItem, Stock, TechnicalIndicatorHistory, TechnicalIndicatorSnapshot } from '@/types'
 
 export type PortfolioAnalysisContext = {
   baseCurrency: Currency
@@ -22,9 +22,11 @@ export type PortfolioAnalysisContext = {
     totalPnl: number
     totalBuyAmount: number
     currentCost: number
+    displayCost: number
     totalCommission: number
     totalDividend: number
     holdingWeight: number
+    totalCapitalWeight: number | null
     currentPrice: number | null
     changePercent: number | null
     dailyPnl: number | null
@@ -33,6 +35,9 @@ export type PortfolioAnalysisContext = {
   }>
   totalCurrentCost: number
   totalHistoricalBuyAmount: number
+  totalCapital: { amount: number; currency: Currency; baseCurrencyAmount: number } | null
+  cashReserve: number | null
+  totalPositionWeight: number | null
   totalRealizedPnl: number
   totalUnrealizedPnl: number
   totalDailyPnl: number
@@ -62,7 +67,18 @@ function convertPortfolioMoney(amount: number, market: Market, rates: Record<str
   return (amount * fromRate) / toRate
 }
 
-async function buildPortfolioAnalysisContext(stocks: Stock[], baseCurrency: Currency = 'CNY'): Promise<PortfolioAnalysisContext> {
+function convertCurrencyMoney(amount: number, fromCurrency: Currency, rates: Record<string, number>, baseCurrency: Currency) {
+  if (fromCurrency === baseCurrency) return amount
+  const fromRate = rates[fromCurrency] || 1
+  const toRate = rates[baseCurrency] || 1
+  return (amount * fromRate) / toRate
+}
+
+async function buildPortfolioAnalysisContext(
+  stocks: Stock[],
+  baseCurrency: Currency = 'CNY',
+  totalCapital?: AppConfig['portfolio']['totalCapital'],
+): Promise<PortfolioAnalysisContext> {
   const rates = await exchangeRateService.getRates()
   const quotes = new Map<string, Awaited<ReturnType<typeof stockPriceService.getQuote>>>()
   await Promise.all(stocks.map(async (stock) => {
@@ -74,7 +90,8 @@ async function buildPortfolioAnalysisContext(stocks: Stock[], baseCurrency: Curr
     const quote = quotes.get(stock.id) ?? null
     const summary = calcStockSummary(stock, quote?.price)
     const lastTrade = [...stock.trades].sort((left, right) => right.date.localeCompare(left.date))[0] ?? null
-    const currentCost = convertPortfolioMoney(summary.avgCostPrice * summary.currentHolding, stock.market, rates, baseCurrency)
+    const currentCost = convertPortfolioMoney(summary.fifoCostBasis, stock.market, rates, baseCurrency)
+    const displayCost = convertPortfolioMoney(summary.avgCostPrice * summary.currentHolding, stock.market, rates, baseCurrency)
     const dailyQuotePnl = quote && summary.currentHolding > 0
       ? getDailyQuotePnl(summary.currentHolding, quote, stock.market)
       : null
@@ -93,6 +110,7 @@ async function buildPortfolioAnalysisContext(stocks: Stock[], baseCurrency: Curr
       totalPnl: convertPortfolioMoney(summary.totalPnl, stock.market, rates, baseCurrency),
       totalBuyAmount: convertPortfolioMoney(summary.totalBuyAmount, stock.market, rates, baseCurrency),
       currentCost,
+      displayCost,
       totalCommission: convertPortfolioMoney(summary.totalCommission, stock.market, rates, baseCurrency),
       totalDividend: convertPortfolioMoney(summary.totalDividend, stock.market, rates, baseCurrency),
       currentPrice: quote?.price ?? null,
@@ -101,20 +119,37 @@ async function buildPortfolioAnalysisContext(stocks: Stock[], baseCurrency: Curr
       lastTradeDate: lastTrade?.date ?? null,
       lastTradeType: lastTrade?.type ?? null,
       holdingWeight: 0,
+      totalCapitalWeight: null,
     }
   })
   const totalCurrentCost = summaries.reduce((sum, item) => sum + item.currentCost, 0)
   const totalHistoricalBuyAmount = summaries.reduce((sum, item) => sum + item.totalBuyAmount, 0)
+  const normalizedTotalCapital = totalCapital && totalCapital.amount > 0
+    ? {
+        amount: totalCapital.amount,
+        currency: totalCapital.currency,
+        baseCurrencyAmount: convertCurrencyMoney(totalCapital.amount, totalCapital.currency, rates, baseCurrency),
+      }
+    : null
   const enriched = summaries.map((item) => ({
     ...item,
     holdingWeight: totalCurrentCost > 0 ? item.currentCost / totalCurrentCost : 0,
+    totalCapitalWeight: normalizedTotalCapital && normalizedTotalCapital.baseCurrencyAmount > 0
+      ? Math.max(item.currentCost, 0) / normalizedTotalCapital.baseCurrencyAmount
+      : null,
   }))
+  const positiveCurrentCost = enriched.reduce((sum, item) => sum + Math.max(item.currentCost, 0), 0)
 
   return {
     baseCurrency,
     summaries: enriched,
     totalCurrentCost,
     totalHistoricalBuyAmount,
+    totalCapital: normalizedTotalCapital,
+    cashReserve: normalizedTotalCapital ? normalizedTotalCapital.baseCurrencyAmount - positiveCurrentCost : null,
+    totalPositionWeight: normalizedTotalCapital && normalizedTotalCapital.baseCurrencyAmount > 0
+      ? positiveCurrentCost / normalizedTotalCapital.baseCurrencyAmount
+      : null,
     totalRealizedPnl: enriched.reduce((sum, item) => sum + item.realizedPnl, 0),
     totalUnrealizedPnl: enriched.reduce((sum, item) => sum + item.unrealizedPnl, 0),
     totalDailyPnl: enriched.reduce((sum, item) => sum + (item.dailyPnl ?? 0), 0),
@@ -160,16 +195,20 @@ async function buildStockAnalysisContext(stock: Stock, aiConfig: AiConfig): Prom
 export const portfolioGetAnalysisContextSkill: AgentSkill<Record<string, unknown>, PortfolioAnalysisContext> = {
   name: 'portfolio.getAnalysisContext',
   description: '为固定组合 AI 分析读取完整但受控的组合上下文。',
-  inputSchema: { baseCurrency: 'string' },
+  inputSchema: { baseCurrency: 'string', totalCapital: 'object?' },
   requiredScopes: ['portfolio.read', 'quote.read'],
   async execute(args, ctx) {
     const baseCurrency = ['CNY', 'HKD', 'USD', 'USDT'].includes(String(args.baseCurrency))
       ? args.baseCurrency as Currency
       : 'CNY'
+    const rawTotalCapital = args.totalCapital as AppConfig['portfolio']['totalCapital'] | undefined
+    const totalCapital = rawTotalCapital && typeof rawTotalCapital.amount === 'number' && ['CNY', 'HKD', 'USD', 'USDT'].includes(rawTotalCapital.currency)
+      ? rawTotalCapital
+      : null
     return {
       skillName: 'portfolio.getAnalysisContext',
       ok: true,
-      data: await buildPortfolioAnalysisContext(ctx.stocks, baseCurrency),
+      data: await buildPortfolioAnalysisContext(ctx.stocks, baseCurrency, totalCapital),
     }
   },
 }

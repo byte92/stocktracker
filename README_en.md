@@ -28,10 +28,6 @@ It helps you record trades, calculate real cost basis, track market data and ret
 | --- | --- |
 | ![Stock detail](./docs/assets/screenshots/readme-stock-detail.png) | ![AI chat](./docs/assets/screenshots/readme-ai-chat.png) |
 
-| AI Analysis History |
-| --- |
-| ![AI analysis history](./docs/assets/screenshots/readme-ai-history.png) |
-
 ## Why StockTracker 💡
 
 Most investment tools show prices, but do not answer the specific questions that matter for personal portfolio accounting: what is the real cost basis, and how do fees and dividends factor in.
@@ -75,7 +71,7 @@ StockTracker is not designed for:
 
 ### AI Research Workflow 🤖
 
-- Built-in AI chat, portfolio analysis, stock analysis, market analysis, and analysis history.
+- Built-in AI chat, portfolio analysis, stock analysis, and market analysis.
 - AI Agent Runtime calls Skills on demand instead of stuffing all holdings into every prompt.
 - Supports non-holding assets by resolving name, symbol, and market, then fetching external quote data.
 - Public web search and controlled web fetch for news, announcements, earnings, and market events.

@@ -30,6 +30,24 @@ type SortOption =
   | 'name-asc'
 
 type QuoteByStockId = Record<string, StockQuote | null>
+type HoldingWeightByStockId = Record<string, number | null>
+type TotalCapitalWeightByStockId = Record<string, number | null>
+const HOLDINGS_SORT_STORAGE_KEY = 'stock-tracker-holdings-sort'
+const SORT_OPTIONS = new Set<SortOption>([
+  'default',
+  'today-pnl-desc',
+  'today-pnl-asc',
+  'today-rate-desc',
+  'total-pnl-desc',
+  'cost-desc',
+  'name-asc',
+])
+
+function readStoredSortOption(): SortOption {
+  if (typeof window === 'undefined') return 'default'
+  const stored = window.localStorage.getItem(HOLDINGS_SORT_STORAGE_KEY)
+  return stored && SORT_OPTIONS.has(stored as SortOption) ? stored as SortOption : 'default'
+}
 
 export default function HoldingsList({
   limit,
@@ -44,14 +62,48 @@ export default function HoldingsList({
 }) {
   const router = useRouter()
   const { t } = useI18n()
-  const { stocks, deleteStock } = useStockStore()
-  const { convertAmountSync } = useCurrency()
+  const { stocks, config, deleteStock } = useStockStore()
+  const { convertAmountSync, displayCurrency, rates } = useCurrency()
   const [showAddStock, setShowAddStock] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; code: string } | null>(null)
-  const [sortBy, setSortBy] = useState<SortOption>('default')
+  const [sortBy, setSortBy] = useState<SortOption>(readStoredSortOption)
   const [quotesByStockId, setQuotesByStockId] = useState<QuoteByStockId>({})
   const calendarMarkets = useMemo(() => Array.from(new Set(stocks.map((stock) => stock.market))), [stocks])
   const { calendars: holidayCalendars, loading: holidayCalendarLoading } = useMarketHolidayCalendars(calendarMarkets)
+
+  useEffect(() => {
+    window.localStorage.setItem(HOLDINGS_SORT_STORAGE_KEY, sortBy)
+  }, [sortBy])
+  const holdingWeightsByStockId = useMemo<HoldingWeightByStockId>(() => {
+    const costs = stocks.map((stock) => {
+      const summary = calcStockSummary(stock)
+      const nativeCost = summary.fifoCostBasis
+      const displayCost = nativeCost > 0 ? convertAmountSync(nativeCost, stock.market) : 0
+      return { id: stock.id, cost: displayCost }
+    })
+    const totalCost = costs.reduce((sum, item) => sum + item.cost, 0)
+
+    return Object.fromEntries(
+      costs.map((item) => [item.id, totalCost > 0 ? item.cost / totalCost : null]),
+    )
+  }, [convertAmountSync, stocks])
+  const totalCapitalWeightsByStockId = useMemo<TotalCapitalWeightByStockId>(() => {
+    const totalCapital = config.portfolio.totalCapital
+    if (!totalCapital || totalCapital.amount <= 0) {
+      return Object.fromEntries(stocks.map((stock) => [stock.id, null]))
+    }
+    const totalCapitalAmount = convertCurrencyAmount(totalCapital.amount, totalCapital.currency, displayCurrency, rates)
+    if (totalCapitalAmount <= 0) {
+      return Object.fromEntries(stocks.map((stock) => [stock.id, null]))
+    }
+
+    return Object.fromEntries(stocks.map((stock) => {
+      const summary = calcStockSummary(stock)
+      const nativeCost = summary.fifoCostBasis
+      const displayCost = nativeCost > 0 ? convertAmountSync(nativeCost, stock.market) : 0
+      return [stock.id, displayCost / totalCapitalAmount]
+    }))
+  }, [config.portfolio.totalCapital, convertAmountSync, displayCurrency, rates, stocks])
 
   useEffect(() => {
     let cancelled = false
@@ -133,8 +185,8 @@ export default function HoldingsList({
             ? convertAmountSync(rightSummary.totalPnl, right.market)
             : convertAmountSync(rightSummary.realizedPnl, right.market)
 
-          const leftCost = convertAmountSync(leftSummary.avgCostPrice * leftSummary.currentHolding, left.market)
-          const rightCost = convertAmountSync(rightSummary.avgCostPrice * rightSummary.currentHolding, right.market)
+          const leftCost = convertAmountSync(leftSummary.fifoCostBasis, left.market)
+          const rightCost = convertAmountSync(rightSummary.fifoCostBasis, right.market)
 
           switch (sortBy) {
             case 'today-pnl-desc':
@@ -176,7 +228,7 @@ export default function HoldingsList({
             <option value="today-pnl-asc">{t('今日盈亏从低到高')}</option>
             <option value="today-rate-desc">{t('今日盈亏率从高到低')}</option>
             <option value="total-pnl-desc">{t('总盈亏从高到低')}</option>
-            <option value="cost-desc">{t('持仓成本从高到低')}</option>
+            <option value="cost-desc">{t('FIFO 成本从高到低')}</option>
             <option value="name-asc">{t('代码顺序')}</option>
           </Select>
           {limit && stocks.length > visibleStocks.length && (
@@ -201,9 +253,11 @@ export default function HoldingsList({
         </Card>
       ) : (
         <Card className="border-border bg-card/60 overflow-hidden">
-          <div className="hidden md:grid grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1.5fr)_auto] gap-4 px-4 py-3 border-b border-border/70">
+          <div className="hidden md:grid grid-cols-[minmax(0,1.8fr)_minmax(0,1.05fr)_minmax(0,1.05fr)_minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1.45fr)_auto] gap-4 px-4 py-3 border-b border-border/70">
             <div className="text-xs text-muted-foreground">{t('名称')}</div>
-            <div className="text-xs text-muted-foreground">{t('持仓成本')}</div>
+            <div className="text-xs text-muted-foreground">{t('加权成本')}</div>
+            <div className="text-xs text-muted-foreground">{t('FIFO 成本')}</div>
+            <div className="text-xs text-muted-foreground">{t('持仓占比')}</div>
             <div className="text-xs text-muted-foreground">{t('今日盈亏')}</div>
             <div className="text-xs text-muted-foreground">{t('总盈亏')}</div>
             <div className="text-xs text-muted-foreground text-right">{t('操作')}</div>
@@ -213,6 +267,8 @@ export default function HoldingsList({
               <StockListRow
                 key={stock.id}
                 stock={stock}
+                holdingWeight={holdingWeightsByStockId[stock.id] ?? null}
+                totalCapitalWeight={totalCapitalWeightsByStockId[stock.id] ?? null}
                 preloadedQuote={quotesByStockId[stock.id] ?? null}
                 holidayCalendar={holidayCalendars[stock.market] ?? null}
                 holidayCalendarLoading={holidayCalendarLoading}
@@ -251,6 +307,8 @@ export default function HoldingsList({
 
 function StockListRow({
   stock,
+  holdingWeight,
+  totalCapitalWeight,
   preloadedQuote,
   holidayCalendar,
   holidayCalendarLoading,
@@ -258,6 +316,8 @@ function StockListRow({
   onDelete,
 }: {
   stock: Stock
+  holdingWeight: number | null
+  totalCapitalWeight: number | null
   preloadedQuote: StockQuote | null
   holidayCalendar: MarketHolidayCalendar | null
   holidayCalendarLoading: boolean
@@ -268,13 +328,16 @@ function StockListRow({
   const { quote: liveQuote } = useStockQuote(stock.code, stock.market, { autoRefresh: true, refreshInterval: 60000 })
   const quote = liveQuote ?? preloadedQuote
   const summary = calcStockSummary(stock, quote?.price)
+  const displayName = getDisplayStockName(stock, quote)
   const nativeCurrency = MARKET_CURRENCY[stock.market] || 'CNY'
   const assetUnit = getAssetUnit(stock.market)
   const marketLabel = getMarketLabel(stock.market)
   const formatNativeAmount = (amount: number) => formatWithNativeCurrency(amount, nativeCurrency, numberLocale)
   const formatNativePrice = (amount: number) => formatWithNativeCurrency(amount, nativeCurrency, numberLocale, 4)
   const totalCost = summary.avgCostPrice * summary.currentHolding
+  const fifoCost = summary.fifoCostBasis
   const avgCost = summary.avgCostPrice
+  const fifoAvgCost = summary.fifoAvgCostPrice
   const realizedPnl = summary.realizedPnl
   const unrealizedPnl = quote ? summary.unrealizedPnl : null
   const totalPnl = quote ? summary.totalPnl : null
@@ -283,6 +346,9 @@ function StockListRow({
   const todayPnl = quote && dailyPnl ? dailyPnl.amount : null
   const todayPnlRate = quote && dailyPnl ? dailyPnl.rate : null
   const currentPrice = quote ? quote.price : null
+  const formattedHoldingWeight = holdingWeight === null ? '--' : formatHoldingWeight(holdingWeight, numberLocale)
+  const formattedTotalCapitalWeight = totalCapitalWeight === null ? '--' : formatHoldingWeight(totalCapitalWeight, numberLocale)
+  const holdingWeightWidth = `${Math.min(Math.max(holdingWeight ?? 0, 0), 1) * 100}%`
   const dailyHint = calendarPending
     ? t('正在确认交易日')
     : dailyPnl?.state === 'market-closed'
@@ -295,29 +361,77 @@ function StockListRow({
 
   return (
     <div
-      className="px-4 py-4 grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1.5fr)_auto] gap-3 md:gap-4 md:items-center group cursor-pointer hover:bg-secondary/30 transition-colors"
+      className="px-4 py-4 grid grid-cols-1 md:grid-cols-[minmax(0,1.8fr)_minmax(0,1.05fr)_minmax(0,1.05fr)_minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1.45fr)_auto] gap-3 md:gap-4 md:items-center group cursor-pointer hover:bg-secondary/30 transition-colors"
       onClick={onOpen}
     >
       <div className="min-w-0 space-y-1">
         <div className="flex items-center gap-2">
-          <div className="font-semibold text-foreground truncate">{stock.name}</div>
-          <span className="text-xs text-muted-foreground font-mono">{stock.code}</span>
-          <span className="neutral-badge">{marketLabel}</span>
+          <div className="font-semibold text-foreground truncate">{displayName}</div>
         </div>
-        <div className="text-xs text-muted-foreground">
-          {stock.code} · {marketLabel}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-mono">{stock.code}</span>
+          <span className="neutral-badge">{marketLabel}</span>
         </div>
       </div>
 
-      <div className="space-y-1">
+      <div className="grid grid-cols-2 gap-3 md:block md:space-y-1">
+        <div className="space-y-1">
+          <div className="text-sm font-mono font-semibold text-foreground">
+            {formatNativeAmount(totalCost)}
+          </div>
+          <div className="text-xs text-muted-foreground md:hidden">
+            {t('加权成本')}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {t('均价 {amount}', { amount: formatNativePrice(avgCost) })}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {t('持仓 {quantity} {unit}', { quantity: formatQuantity(summary.currentHolding, numberLocale), unit: assetUnit })}
+          </div>
+        </div>
+        <div className="space-y-1 md:hidden">
+          <div className="text-sm font-mono font-semibold text-foreground">
+            {formatNativeAmount(fifoCost)}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {t('FIFO 成本')}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {t('均价 {amount}', { amount: formatNativePrice(fifoAvgCost) })}
+          </div>
+        </div>
+        <div className="text-xs text-muted-foreground md:hidden">
+          {t('持仓占比')} {formattedHoldingWeight}
+        </div>
+        <div className="text-xs text-muted-foreground md:hidden">
+          {t('总资金占比')} {formattedTotalCapitalWeight}
+        </div>
+      </div>
+
+      <div className="hidden space-y-1 md:block">
         <div className="text-sm font-mono font-semibold text-foreground">
-          {formatNativeAmount(totalCost)}
+          {formatNativeAmount(fifoCost)}
         </div>
         <div className="text-xs text-muted-foreground">
-          {t('持仓 {quantity} {unit}', { quantity: formatQuantity(summary.currentHolding, numberLocale), unit: assetUnit })}
+          {t('均价 {amount}', { amount: formatNativePrice(fifoAvgCost) })}
         </div>
         <div className="text-xs text-muted-foreground">
-          {t('均价 {amount}', { amount: formatNativePrice(avgCost) })}
+          {t('按剩余批次')}
+        </div>
+      </div>
+
+      <div className="hidden space-y-1 md:block">
+        <div className="text-sm font-mono font-semibold text-foreground">
+          {formattedHoldingWeight}
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary" aria-hidden="true">
+          <div className="h-full rounded-full bg-primary" style={{ width: holdingWeightWidth }} />
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {t('按 FIFO 成本')}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {t('总资金占比')} {formattedTotalCapitalWeight}
         </div>
       </div>
 
@@ -342,14 +456,10 @@ function StockListRow({
             {t('已实现收益')}
           </div>
         ) : (
-          <>
-            <div className="text-xs text-muted-foreground">
-              {t('已实现 {realized} · 浮动 {unrealized}', { realized: formatPnl(realizedPnl, nativeCurrency), unrealized: formatPnl(unrealizedPnl ?? 0, nativeCurrency) })}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {t('累计视角')}
-            </div>
-          </>
+          <div className="space-y-0.5 text-xs text-muted-foreground">
+            <div>{t('已实现 {realized}', { realized: formatPnl(realizedPnl, nativeCurrency) })}</div>
+            <div>{t('浮动 {unrealized}', { unrealized: formatPnl(unrealizedPnl ?? 0, nativeCurrency) })}</div>
+          </div>
         )}
       </div>
 
@@ -380,4 +490,30 @@ function formatQuantity(value: number, locale: string) {
   return value.toLocaleString(locale, {
     maximumFractionDigits: 8,
   })
+}
+
+function formatHoldingWeight(value: number, locale: string) {
+  return `${(value * 100).toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`
+}
+
+function getDisplayStockName(stock: Stock, quote: StockQuote | null) {
+  const quoteName = quote?.name?.trim()
+  if ((stock.market === 'US' || stock.market === 'HK') && quoteName && hasChineseText(quoteName)) {
+    return quoteName
+  }
+  return stock.name
+}
+
+function hasChineseText(value: string) {
+  return /[\u3400-\u9fff]/.test(value)
+}
+
+function convertCurrencyAmount(amount: number, fromCurrency: string, toCurrency: string, rates: Record<string, number>) {
+  if (fromCurrency === toCurrency) return amount
+  const fromRate = rates[fromCurrency] || 1
+  const toRate = rates[toCurrency] || 1
+  return (amount * fromRate) / toRate
 }

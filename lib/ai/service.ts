@@ -17,6 +17,7 @@ import type {
   AiConfig,
   AiConfidence,
   AiProbabilityScenario,
+  AppConfig,
   Stock,
 } from '@/types'
 import type { Market } from '@/types'
@@ -310,10 +311,16 @@ function stockPrompt(context: StockAnalysisContext, config: AiConfig) {
   )
 }
 
-export async function generatePortfolioAnalysis(stocks: Stock[], aiConfig: AiConfig, forceRefresh = false): Promise<AiAnalysisResult> {
+export async function generatePortfolioAnalysis(
+  stocks: Stock[],
+  aiConfig: AiConfig,
+  forceRefresh = false,
+  totalCapital?: AppConfig['portfolio']['totalCapital'],
+): Promise<AiAnalysisResult> {
   validateAiConfig(aiConfig)
   const cacheKey = getCacheKey('portfolio', {
     stocks: stocks.map((stock) => ({ id: stock.id, updatedAt: stock.updatedAt, trades: stock.trades.length })),
+    totalCapital,
     aiConfig: { ...aiConfig, apiKey: '***' },
   })
   if (!forceRefresh) {
@@ -321,7 +328,7 @@ export async function generatePortfolioAnalysis(stocks: Stock[], aiConfig: AiCon
     if (cached) return cached
   }
 
-  const task = await runPortfolioAnalysisAgentTask(stocks, aiConfig, { baseCurrency: 'CNY' })
+  const task = await runPortfolioAnalysisAgentTask(stocks, aiConfig, { baseCurrency: 'CNY', totalCapital })
   const context = task.context
   const { system, user } = portfolioPrompt(context, aiConfig)
   const raw = await callProvider(aiConfig, system, user)

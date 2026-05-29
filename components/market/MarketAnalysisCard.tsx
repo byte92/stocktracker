@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, RefreshCw, Sparkles } from 'lucide-react'
+import { AlertTriangle, Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { describeClientRequestError, readJsonResponse } from '@/lib/api/client'
@@ -11,7 +11,7 @@ import { useI18n } from '@/lib/i18n'
 import { useStockStore } from '@/store/useStockStore'
 import type { AiAnalysisResult } from '@/types'
 
-const AI_ANALYSIS_UNAVAILABLE_MESSAGE = '服务暂时不可用，请稍后重试或点击强制刷新。'
+const AI_ANALYSIS_UNAVAILABLE_MESSAGE = '服务暂时不可用，请稍后重试或点击重新分析。'
 
 export default function MarketAnalysisCard() {
   const { config, userId } = useStockStore()
@@ -56,7 +56,7 @@ export default function MarketAnalysisCard() {
     void loadLatestTodayResult()
   }, [userId])
 
-  const runAnalysis = async (forceRefresh = false) => {
+  const runAnalysis = async () => {
     setLoading(true)
     setError(null)
     try {
@@ -66,7 +66,7 @@ export default function MarketAnalysisCard() {
         body: JSON.stringify({
           userId,
           aiConfig: config.aiConfig,
-          forceRefresh,
+          forceRefresh: true,
         }),
       })
       const data = await readJsonResponse<{ result: AiAnalysisResult }>(res, {
@@ -92,13 +92,9 @@ export default function MarketAnalysisCard() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => runAnalysis(true)} disabled={loading}>
-            <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            {t('强制刷新')}
-          </Button>
-          <Button size="sm" onClick={() => runAnalysis(false)} disabled={loading}>
-            <Sparkles className="mr-1 h-3.5 w-3.5" />
-            {result ? t('重新分析') : t('开始分析')}
+          <Button size="sm" onClick={runAnalysis} disabled={loading} aria-busy={loading}>
+            {loading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />}
+            {loading ? t('分析中...') : result ? t('重新分析') : t('开始分析')}
           </Button>
         </div>
       </div>

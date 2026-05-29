@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock, RefreshCw, Sparkles } from 'lucide-react'
+import { AlertTriangle, Clock, Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { describeClientRequestError, readJsonResponse } from '@/lib/api/client'
@@ -9,9 +9,9 @@ import { nextApiUrls } from '@/lib/api/endpoints'
 import { formatProbabilityScenario } from '@/lib/ai/display'
 import { useI18n } from '@/lib/i18n'
 import { useStockStore } from '@/store/useStockStore'
-import type { AiAnalysisHistoryRecord, AiAnalysisResult, Stock } from '@/types'
+import type { AiAnalysisResult, Stock } from '@/types'
 
-const AI_ANALYSIS_UNAVAILABLE_MESSAGE = '服务暂时不可用，请稍后重试或点击强制刷新。'
+const AI_ANALYSIS_UNAVAILABLE_MESSAGE = '服务暂时不可用，请稍后重试或点击重新分析。'
 
 export default function StockAnalysisPanel({ stock }: { stock: Stock }) {
   const { config, userId } = useStockStore()
@@ -49,12 +49,12 @@ export default function StockAnalysisPanel({ stock }: { stock: Stock }) {
           limit: '1',
         })
         const res = await fetch(nextApiUrls.ai.history(params), { signal: controller.signal })
-        const data = await readJsonResponse<{ records?: AiAnalysisHistoryRecord[] }>(res, {
+        const data = await readJsonResponse<{ records?: Array<{ result?: AiAnalysisResult }> }>(res, {
           fallbackMessage: t('读取标的 AI 历史失败'),
           unavailableMessage: t(AI_ANALYSIS_UNAVAILABLE_MESSAGE),
         })
-        const latest = (data.records as AiAnalysisHistoryRecord[] | undefined)?.[0]
-        if (latest) {
+        const latest = data.records?.[0]
+        if (latest?.result) {
           setResult(latest.result)
           setRestoredFromHistory(true)
         }
@@ -71,7 +71,7 @@ export default function StockAnalysisPanel({ stock }: { stock: Stock }) {
     return () => controller.abort()
   }, [stock.id, userId])
 
-  const runAnalysis = async (forceRefresh = false) => {
+  const runAnalysis = async () => {
     setLoading(true)
     setError(null)
     try {
@@ -82,7 +82,7 @@ export default function StockAnalysisPanel({ stock }: { stock: Stock }) {
           userId,
           stock,
           aiConfig: config.aiConfig,
-          forceRefresh,
+          forceRefresh: true,
         }),
       })
       const data = await readJsonResponse<{ result: AiAnalysisResult }>(res, {
@@ -108,13 +108,9 @@ export default function StockAnalysisPanel({ stock }: { stock: Stock }) {
             <div className="mt-1 text-xs text-muted-foreground">{t('结合持仓、技术指标、估值和新闻驱动给出短中期观察建议。')}</div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => runAnalysis(true)} disabled={loading}>
-              <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-              {t('强制刷新')}
-            </Button>
-            <Button size="sm" onClick={() => runAnalysis(false)} disabled={loading}>
-              <Sparkles className="mr-1 h-3.5 w-3.5" />
-              {result ? t('重新分析') : t('开始分析')}
+            <Button size="sm" onClick={runAnalysis} disabled={loading} aria-busy={loading}>
+              {loading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />}
+              {loading ? t('分析中...') : result ? t('重新分析') : t('开始分析')}
             </Button>
           </div>
         </div>

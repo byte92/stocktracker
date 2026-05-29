@@ -14,6 +14,8 @@ const PLANNER_NORMALIZED_SKILLS = new Set([
   'stock.getExternalQuote',
   'stock.getTechnicalSnapshot',
   'stock.getFinancials',
+  'stock.getAshareSignals',
+  'stock.getGlobalSignals',
   'finance.calculate',
   'trade.prepareRecord',
   'trade.commitRecord',

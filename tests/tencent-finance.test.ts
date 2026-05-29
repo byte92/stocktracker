@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import iconv from 'iconv-lite'
 import { TencentFinanceSource } from '@/lib/dataSources/TencentFinanceSource'
 
 const originalFetch = globalThis.fetch
@@ -22,6 +23,10 @@ function createTencentQuoteLine(symbol: string, fields: Record<number, string>) 
   return `v_mock="${parts.join('~')}";`
 }
 
+function createTencentResponse(line: string) {
+  return new Response(iconv.encode(line, 'GBK') as unknown as BodyInit)
+}
+
 test('腾讯行情源会解析 A 股估值字段', async () => {
   const source = new TencentFinanceSource({ provider: 'tencent' })
   const quoteLine = createTencentQuoteLine('贵州茅台', {
@@ -33,7 +38,7 @@ test('腾讯行情源会解析 A 股估值字段', async () => {
     53: '21.31',
   })
 
-  globalThis.fetch = async () => new Response(quoteLine)
+  globalThis.fetch = async () => createTencentResponse(quoteLine)
 
   try {
     const quote = await source.getQuote('600519', 'A')
@@ -61,7 +66,7 @@ test('腾讯行情源会解析港股估值字段', async () => {
     58: '3.59',
   })
 
-  globalThis.fetch = async () => new Response(quoteLine)
+  globalThis.fetch = async () => createTencentResponse(quoteLine)
 
   try {
     const quote = await source.getQuote('00700', 'HK')
@@ -78,6 +83,28 @@ test('腾讯行情源会解析港股估值字段', async () => {
   }
 })
 
+test('腾讯行情源会解析美股中文名称', async () => {
+  const source = new TencentFinanceSource({ provider: 'tencent' })
+  const quoteLine = createTencentQuoteLine('携程', {
+    1: '携程',
+    3: '50.10',
+    4: '49.32',
+  })
+
+  globalThis.fetch = async () => createTencentResponse(quoteLine)
+
+  try {
+    const quote = await source.getQuote('TCOM', 'US')
+
+    assert.ok(quote)
+    assert.equal(quote.name, '携程')
+    assert.equal(quote.symbol, 'TCOM')
+    assert.equal(quote.currency, 'USD')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('腾讯行情源对基金不返回 PE 和 PB', async () => {
   const source = new TencentFinanceSource({ provider: 'tencent' })
   const quoteLine = createTencentQuoteLine('沪深300ETF', {
@@ -89,7 +116,7 @@ test('腾讯行情源对基金不返回 PE 和 PB', async () => {
     53: '21.31',
   })
 
-  globalThis.fetch = async () => new Response(quoteLine)
+  globalThis.fetch = async () => createTencentResponse(quoteLine)
 
   try {
     const quote = await source.getQuote('510300', 'FUND')

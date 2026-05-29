@@ -6,12 +6,13 @@ import { buildAnalysisTags, generatePortfolioAnalysis } from '@/lib/ai/service'
 import { safeReadJsonBody } from '@/lib/api/request'
 import { withApiLogging } from '@/lib/observability/api'
 import { logger } from '@/lib/observability/logger'
-import type { AiConfig, Stock } from '@/types'
+import type { AiConfig, AppConfig, Stock } from '@/types'
 
 type Body = {
   userId?: string
   stocks?: Stock[]
   aiConfig?: AiConfig
+  totalCapital?: AppConfig['portfolio']['totalCapital']
   forceRefresh?: boolean
 }
 
@@ -31,7 +32,12 @@ async function handlePOST(request: Request) {
     if (!body.aiConfig) {
       return NextResponse.json({ error: '缺少 AI 配置' }, { status: 400 })
     }
-    const result = await generatePortfolioAnalysis(body.stocks, resolveEffectiveAiConfig(body.aiConfig), body.forceRefresh === true)
+    const result = await generatePortfolioAnalysis(
+      body.stocks,
+      resolveEffectiveAiConfig(body.aiConfig),
+      body.forceRefresh === true,
+      body.totalCapital ?? null,
+    )
     try {
       const { saveAiAnalysis } = await import('@/lib/sqlite/db')
       saveAiAnalysis({

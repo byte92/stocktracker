@@ -21,8 +21,7 @@ const NAV_ITEMS = [
 const AI_SUB_ITEMS = [
   { href: '/ai/chat', labelKey: 'AI 对话', match: (pathname: string) => pathname.startsWith('/ai/chat') },
   { href: '/ai', labelKey: '分析中心', match: (pathname: string) => pathname === '/ai' },
-  { href: '/ai/history', labelKey: '分析历史', match: (pathname: string) => pathname.startsWith('/ai/history') },
-  { href: '/ai/debug', labelKey: 'Debug', match: (pathname: string) => pathname.startsWith('/ai/debug') },
+  { href: '/ai/financials', labelKey: '财报分析', match: (pathname: string) => pathname.startsWith('/ai/financials') },
 ] as const
 
 const SIDEBAR_COLLAPSED_KEY = 'stock-tracker-sidebar-collapsed'
@@ -177,8 +176,8 @@ function SidebarContent({
                 collapsed ? 'justify-center px-2' : 'gap-3 px-3'
               } ${
                 active
-                  ? 'bg-primary/12 text-primary border border-primary/20'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  ? 'border border-primary/20 bg-primary/12 text-primary'
+                  : 'border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -196,8 +195,8 @@ function SidebarContent({
               collapsed ? 'justify-center px-2' : 'gap-3 px-3'
             } ${
               aiSectionActive
-                ? 'bg-primary/12 text-primary border border-primary/20'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                ? 'border border-primary/20 bg-primary/12 text-primary'
+                : 'border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground'
             }`}
           >
             <Sparkles className="h-4 w-4" />
@@ -212,7 +211,6 @@ function SidebarContent({
           {!collapsed && aiNavExpanded && (
             <div className="ml-3 space-y-1 border-l border-border/70 pl-3">
               {AI_SUB_ITEMS
-                .filter((item) => item.href !== '/ai/debug' || debugEnabled)
                 .map((item) => {
                   const active = item.match(pathname)
                   return (
@@ -235,7 +233,7 @@ function SidebarContent({
       </nav>
 
       <div className={`border-t border-border py-4 space-y-3 ${collapsed ? 'px-2' : 'px-4'}`}>
-        <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : 'justify-start'}`}>
+        <div className={`flex gap-2 ${collapsed ? 'flex-col items-center justify-center' : 'items-center justify-start'}`}>
           {mounted && (
             <Button
               type="button"

@@ -64,6 +64,9 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     FUND: 'CNY',
     CRYPTO: 'USDT',
   },
+  portfolio: {
+    totalCapital: null,
+  },
 }
 
 export const MARKET_LABELS: Record<Market, string> = {

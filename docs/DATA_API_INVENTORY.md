@@ -51,7 +51,7 @@ pnpm test:external
 | `POST /api/ai/portfolio-analysis` | AI Tab / 组合卡片 | 固定组合分析 Task。 |
 | `POST /api/ai/stock-analysis` | 个股页分析卡片 | 固定个股分析 Task。 |
 | `POST /api/ai/market-analysis` | 大盘分析卡片 | 固定大盘分析 Task。 |
-| `GET/DELETE /api/ai/history` | AI 历史页 | 读取和删除历史分析记录。 |
+| `GET/DELETE /api/ai/history` | AI 分析卡片 | 读取和清理持久化分析结果，用于恢复最近一次组合、个股和大盘分析。 |
 | `GET /api/ai/config/status` | 设置页、AI 对话 | 检查 `.env.local` AI 配置状态。 |
 | `POST /api/ai/test` | 设置页 | 测试 AI 连接。 |
 | `GET/PUT /api/storage` | Zustand store | 本地 SQLite 数据读写。 |
@@ -68,6 +68,6 @@ pnpm test:external
 
 ## 仍可继续优化的耦合点
 
-- 浏览器组件中仍直接调用内部 API route，例如 AI 历史、分析卡片、设置页测试连接。它们不是外部 API 耦合，但可以进一步收敛到 `lib/clientApi`。
+- 浏览器组件中仍直接调用内部 API route，例如 AI 分析卡片、设置页测试连接。它们不是外部 API 耦合，但可以进一步收敛到 `lib/clientApi`。
 - `ExchangeRateService` 目前是单独服务类，未放入 `lib/external`。它已经是独立边界，如果后续希望所有外部请求都在一个目录下，可迁移为 `lib/external/exchangeRates.ts`。
 - `StockPriceService` 同时负责数据源选择、fallback 和缓存。当前边界尚可，后续可以拆成 `QuoteSourceRegistry`、`QuoteCache`、`QuoteService`。
