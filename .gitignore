@@ -44,6 +44,8 @@ data/*.sqlite
 data/*.sqlite-*
 data/*.sqlite.backup-*
 data/*.sqlite.bak-*
+data/*.jsonl
+data/*.log
 data/*.db
 data/*.db-*
 data/*.jsonl
@@ -53,6 +55,8 @@ docker/data/*.sqlite.backup-*
 docker/data/*.sqlite.bak-*
 docker/data/*.db
 docker/data/*.db-*
+docker/data/*.jsonl
+docker/data/*.log
 
 # typescript
 *.tsbuildinfo

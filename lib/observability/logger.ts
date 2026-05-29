@@ -1,5 +1,4 @@
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
-type LogColorMode = 'auto' | 'always' | 'never'
 
 const LEVEL_ORDER: Record<LogLevel, number> = {
   debug: 10,
@@ -10,13 +9,6 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 
 const REDACTED = '[redacted]'
 const REDACT_KEYS = /api[-_]?key|authorization|cookie|token|secret|password|access[-_]?key/i
-const ANSI_RESET = '\x1b[0m'
-const LEVEL_COLORS: Record<LogLevel, string> = {
-  debug: '\x1b[90m',
-  info: '\x1b[36m',
-  warn: '\x1b[33m',
-  error: '\x1b[31m',
-}
 
 type LogFields = Record<string, unknown>
 
@@ -29,25 +21,10 @@ function configuredLevel(): LogLevel | 'silent' {
   return 'info'
 }
 
-function configuredColorMode(): LogColorMode {
-  const raw = (process.env.APP_LOG_COLOR || process.env.LOG_COLOR || '').toLowerCase()
-  if (raw === '1' || raw === 'true' || raw === 'always') return 'always'
-  if (raw === '0' || raw === 'false' || raw === 'never') return 'never'
-  return 'auto'
-}
-
 function shouldLog(level: LogLevel) {
   const current = configuredLevel()
   if (current === 'silent') return false
   return LEVEL_ORDER[level] >= LEVEL_ORDER[current]
-}
-
-function shouldColorLog() {
-  const mode = configuredColorMode()
-  if (mode === 'always') return true
-  if (mode === 'never') return false
-  if (process.env.NO_COLOR) return false
-  return process.env.NODE_ENV === 'development'
 }
 
 function sanitize(value: unknown, depth = 0): unknown {
@@ -75,10 +52,54 @@ export function formatError(error: unknown) {
   }
 }
 
-export function formatLogLine(payload: LogFields, level: LogLevel, color = shouldColorLog()) {
-  const line = JSON.stringify(payload)
-  if (!color) return line
-  return `${LEVEL_COLORS[level]}${line}${ANSI_RESET}`
+export function formatLogLine(payload: LogFields) {
+  return JSON.stringify(payload)
+}
+
+function configuredLogFile() {
+  const raw = process.env.APP_LOG_FILE || process.env.LOG_FILE || ''
+  return raw.trim()
+}
+
+function getDirname(filePath: string) {
+  const index = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
+  return index > 0 ? filePath.slice(0, index) : '.'
+}
+
+async function importNodeModule<T>(name: string): Promise<T | null> {
+  if (typeof window !== 'undefined') return null
+
+  try {
+    const importer = Function('name', 'return import(name)') as (id: string) => Promise<T>
+    return await importer(name)
+  } catch {
+    return null
+  }
+}
+
+async function appendLogFile(line: string) {
+  const filePath = configuredLogFile()
+  if (!filePath) return
+
+  const fs = await importNodeModule<{
+    mkdirSync: (path: string, options: { recursive: boolean }) => void
+    appendFileSync: (path: string, data: string, encoding: BufferEncoding) => void
+  }>('fs')
+  if (!fs) return
+
+  try {
+    fs.mkdirSync(getDirname(filePath), { recursive: true })
+    fs.appendFileSync(filePath, `${line}\n`, 'utf8')
+  } catch (error) {
+    const failureLine = formatLogLine({
+      ts: new Date().toISOString(),
+      level: 'error',
+      event: 'logger.file.write.failed',
+      path: filePath,
+      error: formatError(error),
+    })
+    console.error(failureLine)
+  }
 }
 
 export function logEvent(level: LogLevel, event: string, fields: LogFields = {}) {
@@ -91,7 +112,8 @@ export function logEvent(level: LogLevel, event: string, fields: LogFields = {})
     event,
     ...sanitizedFields,
   }
-  const line = formatLogLine(payload, level)
+  const line = formatLogLine(payload)
+  void appendLogFile(line)
 
   if (level === 'error') {
     console.error(line)
