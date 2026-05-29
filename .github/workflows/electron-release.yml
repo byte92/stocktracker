@@ -37,6 +37,7 @@ jobs:
           AI_BASE_URL: https://api.openai.com/v1
           AI_MODEL: gpt-4o-mini
           AI_API_KEY: placeholder-for-build
+          FINANCE_SQLITE_PATH: ${{ runner.temp }}/finance.sqlite
 
       - name: Copy static assets to standalone
         run: cp -r .next/static .next/standalone/.next/static
@@ -82,6 +83,7 @@ jobs:
           AI_BASE_URL: https://api.openai.com/v1
           AI_MODEL: gpt-4o-mini
           AI_API_KEY: placeholder-for-build
+          FINANCE_SQLITE_PATH: ${{ runner.temp }}/finance.sqlite
 
       - name: Copy static assets to standalone
         run: xcopy .next\\static .next\\standalone\\.next\\static /E /I /Y
