@@ -126,8 +126,24 @@ export function createServerManager(options: ServerManagerOptions): ServerManage
 
     port = await findAvailablePort(options.port ?? DEFAULT_PORT)
 
+    // Read .env.local from user data directory
+    const userEnvPath = path.join(options.userDataPath, '.env.local')
+    let userEnv: Record<string, string> = {}
+    if (fs.existsSync(userEnvPath)) {
+      const content = fs.readFileSync(userEnvPath, 'utf-8')
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#')) continue
+        const eqIdx = trimmed.indexOf('=')
+        if (eqIdx > 0) {
+          userEnv[trimmed.slice(0, eqIdx)] = trimmed.slice(eqIdx + 1)
+        }
+      }
+    }
+
     const env = {
       ...process.env,
+      ...userEnv,
       HOSTNAME: '127.0.0.1',
       PORT: String(port),
       NODE_ENV: 'production' as const,
