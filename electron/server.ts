@@ -94,10 +94,19 @@ export function createServerManager(options: ServerManagerOptions): ServerManage
   let ready = false
 
   function getServerScript(): string {
-    // In packaged app: resources/.next/standalone/server.js
+    // In packaged app: resources/app.asar.unpacked/.next/standalone/server.js
     // In development: projectRoot/.next/standalone/server.js
     const isPackaged = app.isPackaged
-    const appPath = isPackaged ? process.resourcesPath : process.cwd()
+    let appPath = isPackaged ? process.resourcesPath : process.cwd()
+
+    // If packaged, check if files are in asar.unpacked directory
+    if (isPackaged) {
+      const unpackedPath = path.join(appPath, 'app.asar.unpacked')
+      if (fs.existsSync(unpackedPath)) {
+        appPath = unpackedPath
+      }
+    }
+
     const standaloneDir = path.join(appPath, '.next', 'standalone')
 
     // Ensure static assets are available in standalone directory

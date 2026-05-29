@@ -20,6 +20,12 @@ extraResources:
       - "**/*"
 
 asar: true
+asarUnpack:
+  - "**/*.node"
+  - "**/node_modules/.pnpm/better-sqlite3*/**"
+  - ".next/standalone/**"
+
+nativeRebuilder: true
 
 mac:
   category: public.app-category.finance
