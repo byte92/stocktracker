@@ -154,17 +154,17 @@ jobs:
             COMMITS="- Initial release"
           fi
 
-          # Generate notes file
-          cat > release-notes.md << 'NOTES_EOF'
+          # Generate notes
+          cat > release-notes.md << EOF
           ## StockTracker 桌面客户端
 
           本地优先的个人投资记录、组合核算和 AI 投研工作台。下载安装即可使用，不需要命令行或 Docker。
 
           ### 安装说明
 
-          **macOS**：下载 `.dmg` 文件，双击打开，拖拽到 Applications 文件夹。首次打开如提示"无法验证开发者"，右键点击应用 → 打开 → 确认即可。
+          **macOS**：下载 \`.dmg\` 文件，双击打开，拖拽到 Applications 文件夹。首次打开如提示"无法验证开发者"，右键点击应用 → 打开 → 确认即可。
 
-          **Windows**：下载 `.exe` 安装包，运行安装向导。
+          **Windows**：下载 \`.exe\` 安装包，运行安装向导。
 
           首次打开会引导配置 AI 服务（可跳过），数据保存在本地，不需要账号。
 
@@ -183,9 +183,9 @@ jobs:
 
           ### Installation
 
-          **macOS**: Download the `.dmg` file, double-click to open, and drag to Applications. If you see "can't be opened because it is from an unidentified developer", right-click the app → Open → Open Anyway.
+          **macOS**: Download the \`.dmg\` file, double-click to open, and drag to Applications. If you see "can't be opened because it is from an unidentified developer", right-click the app → Open → Open Anyway.
 
-          **Windows**: Download the `.exe` installer and follow the setup wizard.
+          **Windows**: Download the \`.exe\` installer and follow the setup wizard.
 
           On first launch, you'll be guided to configure AI services (can be skipped). Data is stored locally, no account required.
 
@@ -196,19 +196,14 @@ jobs:
           - 🤖 AI investing chat & analysis
           - 🔒 Local data storage, privacy-first
 
-          ### Changes (${{ github.ref_name }})
+          ### Changes (\${{ github.ref_name }})
 
-          NOTES_EOF
-
-          echo "$COMMITS" >> release-notes.md
-          echo "" >> release-notes.md
-
-          cat > release-notes.md << 'NOTES_EOF'
+          \${COMMITS}
 
           ### Checksums
 
           SHA-256 checksums are available in the release assets.
-          NOTES_EOF
+          EOF
         shell: bash
 
       - name: Create GitHub Release
