@@ -2,7 +2,7 @@
   "name": "stocktracker",
   "version": "1.0.0",
   "description": "Local-first portfolio tracker and AI investing copilot.",
-  "main": "index.js",
+  "main": "electron/main.js",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "preinstall": "node scripts/only-pnpm.cjs",
@@ -12,7 +12,11 @@
     "build": "next build",
     "start": "next start -p 3218",
     "test": "tsx --test tests/**/*.test.ts",
-    "test:external": "tsx --test tests/external-apis.test.ts"
+    "test:external": "tsx --test tests/external-apis.test.ts",
+    "electron:dev": "tsc -p electron/tsconfig.json && electron-rebuild -m .next/standalone && electron .",
+    "electron:build": "pnpm build && tsc -p electron/tsconfig.json && electron-rebuild -m .next/standalone && electron-builder",
+    "electron:build:mac": "pnpm build && tsc -p electron/tsconfig.json && electron-rebuild -m .next/standalone && electron-builder --mac",
+    "electron:build:win": "pnpm build && tsc -p electron/tsconfig.json && electron-rebuild -m .next/standalone && electron-builder --win"
   },
   "keywords": [
     "portfolio",
@@ -36,6 +40,7 @@
     "better-sqlite3": "^12.9.0",
     "big.js": "^7.0.1",
     "date-fns": "^4.1.0",
+    "electron-updater": "^6.8.3",
     "iconv-lite": "^0.7.2",
     "lightweight-charts": "^4.2.3",
     "next": "^16.2.4",
@@ -63,6 +68,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
+    "@electron/rebuild": "^4.0.4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/big.js": "^6.2.2",
     "@types/node": "^25.3.3",
@@ -72,6 +78,8 @@
     "autoprefixer": "^10.4.27",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron": "^42.3.0",
+    "electron-builder": "^26.8.1",
     "lucide-react": "^0.577.0",
     "postcss": "^8.5.12",
     "tailwind-merge": "^3.5.0",

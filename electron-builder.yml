@@ -1,0 +1,53 @@
+appId: com.stocktracker.app
+productName: StockTracker
+directories:
+  output: dist-electron
+
+files:
+  - electron/**/*
+  - ".next/standalone/**/*"
+  - ".next/static/**/*"
+  - app/icon.svg
+  - skills/**/*
+  - "!node_modules/**/{test,tests,__tests__}/**"
+  - "!node_modules/**/*.{md,ts,map}"
+  - "!**/*.{ts,map}"
+
+extraResources:
+  - from: ".env.example"
+    to: ".env.example"
+    filter:
+      - "**/*"
+
+asar: true
+
+mac:
+  category: public.app-category.finance
+  icon: build/icon.icns
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: StockTracker
+
+publish:
+  provider: github
+  owner: byte92
+  repo: finance_sys

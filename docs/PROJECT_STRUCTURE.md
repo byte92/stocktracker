@@ -7,11 +7,14 @@
 | 目录 | 职责 |
 | --- | --- |
 | `app/` | Next.js App Router 页面和 API Route。页面负责组装视图，API Route 负责参数校验和调用领域服务。 |
+| `build/` | Electron 应用图标资源（`.icns`、`.png`）。 |
 | `components/` | React 组件。通用 UI 放在 `components/ui`，业务组件按领域放在 `ai`、`market`、`portfolio`、`i18n` 等子目录。 |
 | `config/` | 默认配置和静态配置，例如市场、手续费、数据源默认值。 |
 | `docs/` | 产品、架构、接口清单和维护文档。 |
+| `electron/` | Electron 桌面客户端主进程、预加载脚本、服务管理和首次引导页面。 |
 | `hooks/` | 浏览器侧 React hooks。 |
 | `lib/` | 领域逻辑、数据源适配、AI/Agent Runtime、SQLite、本地工具函数。 |
+| `scripts/` | 构建和开发辅助脚本。 |
 | `skills/` | Agent Skill Markdown 描述文件。内置 Skill 放在 `skills/builtin`。 |
 | `store/` | Zustand store，负责前端状态和本地持久化协调。 |
 | `tests/` | Node test runner 测试。默认测试不依赖真实外部网络；外部接口 smoke test 使用 `pnpm test:external`。 |

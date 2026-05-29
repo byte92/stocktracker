@@ -31,6 +31,12 @@ pnpm build
 
 # 生产启动
 pnpm start
+
+# Electron 桌面客户端
+pnpm electron:dev          # 开发模式启动 Electron
+pnpm electron:build        # 构建桌面客户端（当前平台）
+pnpm electron:build:mac    # 构建 macOS 安装包
+pnpm electron:build:win    # 构建 Windows 安装包
 ```
 
 开发服务器启动后访问：
@@ -218,3 +224,51 @@ Alpha Vantage 测试需要配置 `ALPHA_VANTAGE_API_KEY`，否则会跳过。
 - 不提交本地调试产物。
 - 不保留一次性接口调试脚本。
 - 外部 API 请求优先放入 `lib/external` 或 `lib/dataSources`。
+
+## Electron 桌面客户端
+
+项目支持打包为 macOS / Windows 桌面客户端，用户下载安装后双击即用。
+
+### 目录结构
+
+```
+electron/
+├── main.ts              # Electron 主进程入口
+├── preload.ts           # 预加载脚本，暴露 IPC 桥接
+├── server.ts            # Next.js standalone server 管理
+├── updater.ts           # 自动更新
+└── onboarding/
+    └── index.html       # 首次引导页面
+```
+
+### 工作原理
+
+1. Electron 主进程启动后，检查用户数据目录是否有 `.env.local`
+2. 如果没有，展示引导页配置 AI 服务（可跳过）
+3. 启动 Next.js standalone server 作为子进程
+4. BrowserWindow 通过 `http://127.0.0.1:{port}` 加载页面
+5. 用户数据（SQLite、配置）存储在系统标准目录：
+   - macOS：`~/Library/Application Support/StockTracker/`
+   - Windows：`%APPDATA%/StockTracker/`
+
+### 构建流程
+
+```bash
+# 1. 构建 Next.js standalone
+pnpm build
+
+# 2. 打包 Electron 应用
+pnpm electron:build:mac    # 或 electron:build:win
+```
+
+构建产物在 `dist-electron/` 目录下。
+
+### 生成应用图标
+
+```bash
+./scripts/generate-icons.sh
+```
+
+从 `app/icon.svg` 生成 `build/icon.icns`（macOS）和 `build/icon.ico`（Windows）。
+
+更多设计细节见 [Electron 桌面客户端设计](./superpowers/specs/2026-05-29-electron-desktop-client-design.md)。
