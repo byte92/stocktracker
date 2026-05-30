@@ -94,8 +94,8 @@ Requirements:
 - macOS / Linux / Windows
 
 ```bash
-git clone https://github.com/byte92/finance_sys.git
-cd finance_sys
+git clone https://github.com/byte92/stocktracker.git
+cd stocktracker
 pnpm install
 pnpm dev
 ```
@@ -132,8 +132,8 @@ If `.env.local` contains a complete AI configuration, the server uses it first. 
 If you just want to run StockTracker as a local service, use Docker Compose:
 
 ```bash
-git clone https://github.com/byte92/finance_sys.git
-cd finance_sys/docker
+git clone https://github.com/byte92/stocktracker.git
+cd stocktracker/docker
 docker compose up -d --build
 ```
 

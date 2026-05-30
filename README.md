@@ -97,8 +97,8 @@ StockTracker 不适合：
 - macOS / Linux / Windows
 
 ```bash
-git clone https://github.com/byte92/finance_sys.git
-cd finance_sys
+git clone https://github.com/byte92/stocktracker.git
+cd stocktracker
 pnpm install
 pnpm dev
 ```
@@ -117,7 +117,7 @@ pnpm dev
 
 ### 下载安装
 
-前往 [GitHub Releases](https://github.com/byte92/finance_sys/releases) 下载对应平台的安装包：
+前往 [GitHub Releases](https://github.com/byte92/stocktracker/releases) 下载对应平台的安装包：
 
 | 平台 | 格式 | 安装方式 |
 | --- | --- | --- |
@@ -176,8 +176,8 @@ AI_API_KEY=sk-...
 如果你只想把它作为本地服务跑起来，可以直接使用 Docker Compose：
 
 ```bash
-git clone https://github.com/byte92/finance_sys.git
-cd finance_sys/docker
+git clone https://github.com/byte92/stocktracker.git
+cd stocktracker/docker
 docker compose up -d --build
 ```
 

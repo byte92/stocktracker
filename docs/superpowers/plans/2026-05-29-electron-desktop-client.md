@@ -868,7 +868,7 @@ nsis:
 publish:
   provider: github
   owner: byte92
-  repo: finance_sys
+  repo: stocktracker
 ```
 
 - [ ] **Step 2: 更新 `package.json` 添加 scripts 和 main 入口**
