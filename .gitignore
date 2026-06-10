@@ -74,3 +74,4 @@ dist-electron/
 *.exe
 *.blockmap
 latest*.yml
+.agents
