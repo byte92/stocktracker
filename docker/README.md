@@ -42,13 +42,13 @@ docker/data/finance.sqlite
 默认情况下，`docker-compose.yml` 会从 GHCR 拉取公开镜像：
 
 ```text
-ghcr.io/byte92/finance_sys:latest
+ghcr.io/byte92/stocktracker:latest
 ```
 
 如需指定其它 tag 或镜像源，可以在 `docker/.env` 中设置：
 
 ```dotenv
-DOCKER_IMAGE=ghcr.io/byte92/finance_sys:main-84ee3a6
+DOCKER_IMAGE=ghcr.io/byte92/stocktracker:main-84ee3a6
 ```
 
 如果需要更新到最新镜像：
@@ -99,7 +99,7 @@ docker compose up -d --build
 公开镜像发布在 GitHub Container Registry：
 
 ```text
-ghcr.io/byte92/finance_sys
+ghcr.io/byte92/stocktracker
 ```
 
 可以直接拉取运行：
@@ -113,7 +113,7 @@ docker run -d \
   -p "${HOST_PORT}:3218" \
   -e PORT=3218 \
   -v "$(pwd)/data:/app/data" \
-  ghcr.io/byte92/finance_sys:latest
+  ghcr.io/byte92/stocktracker:latest
 ```
 
 如果需要传入 AI/API Key 等业务配置，可以额外加上 `--env-file ../.env.local`。
@@ -133,7 +133,7 @@ docker login ghcr.io
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -f Dockerfile \
-  -t ghcr.io/byte92/finance_sys:latest \
+  -t ghcr.io/byte92/stocktracker:latest \
   --push \
   ..
 ```

@@ -22,13 +22,12 @@ const DEFAULT_CONFIG: StockServiceConfig = {
       rateLimit: 5,
       cacheTtl: 300,
     },
-    stooq: { provider: 'stooq', rateLimit: 120, cacheTtl: 60 },
     crypto: { provider: 'crypto', rateLimit: 120, cacheTtl: 15 },
     manual: { provider: 'manual', rateLimit: 1000, cacheTtl: 0 },
   },
   cacheEnabled: true,
   cacheTtl: 60,
-  fallbackChain: ['tencent', 'nasdaq', 'yahoo-finance', 'stooq', 'crypto', 'alpha-vantage', 'manual'],
+  fallbackChain: ['tencent', 'nasdaq', 'yahoo-finance', 'crypto', 'alpha-vantage', 'manual'],
 }
 
 /**
@@ -97,7 +96,7 @@ export class StockPriceService {
 
   private getFallbackChain(market: Market) {
     if (market === 'US') {
-      return ['nasdaq', 'tencent', 'yahoo-finance', 'stooq', 'alpha-vantage', 'manual'] as DataSourceProvider[]
+      return ['nasdaq', 'tencent', 'yahoo-finance', 'alpha-vantage', 'manual'] as DataSourceProvider[]
     }
     if (market === 'CRYPTO') {
       return ['crypto', 'manual'] as DataSourceProvider[]

@@ -25,7 +25,7 @@
 
 | 目录 / 文件 | 职责 |
 | --- | --- |
-| `lib/dataSources/` | 当前报价数据源适配，例如腾讯、Nasdaq、Yahoo、Stooq、Alpha Vantage。 |
+| `lib/dataSources/` | 当前报价数据源适配，例如腾讯、Nasdaq、Yahoo、Alpha Vantage。 |
 | `lib/external/` | 外部 API 的统一入口，例如 K 线、新闻、指数、LLM Provider。 |
 | `lib/agent/` | Agent Runtime、Planner、Executor、Skill 注册和固定分析 Task。 |
 | `lib/ai/` | AI 对话、配置、建议问题和历史分析服务。 |

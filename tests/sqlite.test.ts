@@ -310,6 +310,68 @@ test('sqlite deleting a financial analysis also removes its indexed chunks', () 
   }
 })
 
+test('sqlite clearing AI data removes chat, analysis history and financial chunks for a user only', () => {
+  const store = createPortfolioStore(createTempDbPath())
+
+  try {
+    store.saveAiChatSession({ id: 'session-1', userId: 'local:test-user', title: 'Test session' })
+    store.saveAiChatMessage({
+      id: 'message-1',
+      sessionId: 'session-1',
+      userId: 'local:test-user',
+      role: 'user',
+      content: 'hello',
+    })
+    store.saveAiAnalysis({
+      id: 'financial-record-1',
+      userId: 'local:test-user',
+      type: 'financial',
+      stockId: 'stock-aapl',
+      stockCode: 'AAPL',
+      stockName: 'Apple',
+      market: 'US',
+      confidence: 'medium',
+      tags: ['财报分析', 'US'],
+      generatedAt: '2026-05-21T08:00:00.000Z',
+      result: {
+        symbol: 'AAPL',
+        market: 'US',
+        analysis: { companyName: 'Apple', confidence: 'medium', trendSummary: 'ok', metrics: {}, highlights: [], risks: [], valuationNotes: [], missingData: [] },
+        chain: { provider: 'native-json', degraded: false },
+      },
+    })
+    store.replaceFinancialDocChunks({
+      userId: 'local:test-user',
+      analysisId: 'financial-record-1',
+      symbol: 'AAPL',
+      market: 'US',
+      embeddingModel: 'text-embedding-3-small',
+      chunks: [
+        { sourceTitle: 'Apple Q1', publisher: 'apple-ir', content: 'revenue chunk', embedding: [1, 0] },
+      ],
+    })
+    store.replaceFinancialDocChunks({
+      userId: 'local:other-user',
+      analysisId: 'other-record',
+      symbol: 'MSFT',
+      market: 'US',
+      embeddingModel: 'text-embedding-3-small',
+      chunks: [
+        { sourceTitle: 'Microsoft Q1', publisher: 'msft-ir', content: 'other chunk', embedding: [0, 1] },
+      ],
+    })
+
+    store.clearAiDataByUserId('local:test-user')
+
+    assert.equal(store.listAiChatSessions('local:test-user').length, 0)
+    assert.equal(store.listAiAnalysisByUserId('local:test-user').length, 0)
+    assert.equal(store.listFinancialDocChunks('local:test-user', 'AAPL', 'US').length, 0)
+    assert.equal(store.listFinancialDocChunks('local:other-user', 'MSFT', 'US').length, 1)
+  } finally {
+    store.close()
+  }
+})
+
 test('sqlite persists and lists ai agent runs', () => {
   const store = createPortfolioStore(createTempDbPath())
 

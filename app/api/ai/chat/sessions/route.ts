@@ -4,7 +4,7 @@ import { NEXT_API_ROUTES } from '@/lib/api/endpoints'
 import { safeReadJsonBody } from '@/lib/api/request'
 import { normalizeChatTitle } from '@/lib/ai/chat'
 import { withApiLogging } from '@/lib/observability/api'
-import { clearAiChatByUserId, deleteAiChatSession, getAiChatSession, listAiChatSessions, saveAiChatSession, updateAiChatSessionTitle } from '@/lib/sqlite/db'
+import { clearAiDataByUserId, deleteAiChatSession, getAiChatSession, listAiChatSessions, saveAiChatSession, updateAiChatSessionTitle } from '@/lib/sqlite/db'
 
 type CreateBody = {
   userId?: string
@@ -94,7 +94,7 @@ async function handleDELETE(request: Request) {
     }
 
     if (body.all) {
-      clearAiChatByUserId(body.userId)
+      clearAiDataByUserId(body.userId)
       return NextResponse.json({ ok: true })
     }
 

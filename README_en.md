@@ -63,7 +63,7 @@ StockTracker is not designed for:
 
 ### Market Data and Charts 📈
 
-- Aggregates stock quotes from Tencent Finance, Nasdaq, Yahoo Finance, Stooq, Alpha Vantage, and more.
+- Aggregates stock quotes from Tencent Finance, Nasdaq, Yahoo Finance, Alpha Vantage, and more.
 - Crypto quotes and candles prefer Binance and fall back to Coinbase.
 - K-line charts, technical indicators, valuation fields, news, and market overview.
 - Built-in exchange-rate service for unified multi-currency portfolio conversion.

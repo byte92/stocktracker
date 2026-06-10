@@ -64,7 +64,7 @@ StockTracker 不适合：
 
 ### 行情、估值与图表 📈
 
-- 聚合腾讯财经、Nasdaq、Yahoo Finance、Stooq、Alpha Vantage 等股票行情源。
+- 聚合腾讯财经、Nasdaq、Yahoo Finance、Alpha Vantage 等股票行情源。
 - 加密资产报价和 K 线优先使用 Binance，失败回退 Coinbase。
 - 支持 K 线、技术指标、估值字段、新闻和大盘概览。
 - 内置汇率服务，支持多币种持仓统一折算。
