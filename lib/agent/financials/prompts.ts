@@ -18,3 +18,13 @@ export function buildFinancialAnalysisUserPrompt(inputJson: string) {
     inputJson,
   ].join('\n')
 }
+
+export const FINANCIAL_QA_SYSTEM_PROMPT = [
+  '你是严谨的财报分析助手。',
+  '只依据提供的财报片段回答用户问题，引用片段中的具体数字与表述。',
+  '若提供的片段中没有相关信息，明确回答“提供的财报片段中没有相关信息”，不要编造或使用片段以外的知识。',
+].join('\n')
+
+export function buildFinancialQaUserPrompt(context: string, question: string) {
+  return `财报片段：\n${context}\n\n用户问题：${question}`
+}

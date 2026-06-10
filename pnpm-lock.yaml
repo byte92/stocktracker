@@ -14,6 +14,9 @@ importers:
       '@langchain/openai':
         specifier: 0.6.13
         version: 0.6.13(@langchain/core@0.3.79(openai@5.12.2(zod@3.25.76)))
+      '@langchain/textsplitters':
+        specifier: ^1.0.1
+        version: 1.0.1(@langchain/core@0.3.79(openai@5.12.2(zod@3.25.76)))
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -618,6 +621,12 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       '@langchain/core': '>=0.3.68 <0.4.0'
+
+  '@langchain/textsplitters@1.0.1':
+    resolution: {integrity: sha512-rheJlB01iVtrOUzttscutRgLybPH9qR79EyzBEbf1u97ljWyuxQfCwIWK+SjoQTM9O8M7GGLLRBSYE26Jmcoww==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@langchain/core': ^1.0.0
 
   '@malept/cross-spawn-promise@2.0.0':
     resolution: {integrity: sha512-1DpKU0Z5ThltBwjNySMC14g0CkbyhCaz9FkhxqNsZI6uAPJXFS8cMXlBKo26FJ8ZuW6S9GCMcR9IO5k2X5/9Fg==}
@@ -3556,6 +3565,11 @@ snapshots:
       zod: 3.25.76
     transitivePeerDependencies:
       - ws
+
+  '@langchain/textsplitters@1.0.1(@langchain/core@0.3.79(openai@5.12.2(zod@3.25.76)))':
+    dependencies:
+      '@langchain/core': 0.3.79(openai@5.12.2(zod@3.25.76))
+      js-tiktoken: 1.0.21
 
   '@malept/cross-spawn-promise@2.0.0':
     dependencies:

@@ -2,6 +2,7 @@ import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { ChatOpenAI } from '@langchain/openai'
 import { callJsonCompletion } from '@/lib/external/llmProvider'
 import { buildFinancialAnalysisUserPrompt, FINANCIAL_ANALYSIS_SYSTEM_PROMPT } from '@/lib/agent/financials/prompts'
+import { retrieveRelevantExcerpts } from '@/lib/agent/financials/retrieval'
 import {
   buildFallbackFinancialAnalysis,
   financialAnalysisSchema,
@@ -13,11 +14,18 @@ import type { AiConfig } from '@/types'
 
 const FINANCIAL_ANALYSIS_TIMEOUT_MS = 20_000
 
+export type FinancialAnalysisRetrievalMeta = {
+  used: boolean
+  chunkCount?: number
+  matchedDocCount?: number
+}
+
 export type FinancialAnalysisChainResult = {
   analysis: FinancialAnalysis
   provider: 'langchain-openai' | 'native-json'
   degraded: boolean
   error?: string
+  retrieval?: FinancialAnalysisRetrievalMeta
 }
 
 function ensureApiBase(baseUrl: string) {
@@ -113,28 +121,41 @@ async function analyzeWithNativeJson(input: FinancialAnalysisInput, config: AiCo
 }
 
 export async function runFinancialAnalysisChain(input: FinancialAnalysisInput, config: AiConfig): Promise<FinancialAnalysisChainResult> {
+  // RAG：用语义检索从（可能很长的）财报文档中挑出与问题最相关的片段，
+  // 替代下游 compactInput 的"截断前 2500 字"。失败时透明降级回原文档。
+  const retrieval = await retrieveRelevantExcerpts(input.documents, input.userQuestion, config)
+  const effectiveInput = retrieval.retrieved ? { ...input, documents: retrieval.documents } : input
+  const retrievalMeta: FinancialAnalysisRetrievalMeta = {
+    used: retrieval.retrieved,
+    ...(retrieval.chunkCount !== undefined ? { chunkCount: retrieval.chunkCount } : {}),
+    ...(retrieval.matchedDocCount !== undefined ? { matchedDocCount: retrieval.matchedDocCount } : {}),
+  }
+
   if (config.provider === 'openai-compatible') {
     try {
       return {
-        analysis: await analyzeWithLangChain(input, config),
+        analysis: await analyzeWithLangChain(effectiveInput, config),
         provider: 'langchain-openai',
         degraded: false,
+        retrieval: retrievalMeta,
       }
     } catch (langChainError) {
       try {
         return {
-          analysis: await analyzeWithNativeJson(input, config),
+          analysis: await analyzeWithNativeJson(effectiveInput, config),
           provider: 'native-json',
           degraded: true,
           error: 'LangChain 结构化解析失败，已切换到 JSON 回退链路。',
+          retrieval: retrievalMeta,
         }
       } catch (nativeError) {
         const message = shortChainError(nativeError instanceof Error ? nativeError : langChainError)
         return {
-          analysis: buildFallbackFinancialAnalysis(input, message),
+          analysis: buildFallbackFinancialAnalysis(effectiveInput, message),
           provider: 'langchain-openai',
           degraded: true,
           error: message,
+          retrieval: retrievalMeta,
         }
       }
     }
@@ -142,17 +163,19 @@ export async function runFinancialAnalysisChain(input: FinancialAnalysisInput, c
 
   try {
     return {
-      analysis: await analyzeWithNativeJson(input, config),
+      analysis: await analyzeWithNativeJson(effectiveInput, config),
       provider: 'native-json',
       degraded: false,
+      retrieval: retrievalMeta,
     }
   } catch (error) {
     const message = shortChainError(error)
     return {
-      analysis: buildFallbackFinancialAnalysis(input, message),
+      analysis: buildFallbackFinancialAnalysis(effectiveInput, message),
       provider: 'native-json',
       degraded: true,
       error: message,
+      retrieval: retrievalMeta,
     }
   }
 }

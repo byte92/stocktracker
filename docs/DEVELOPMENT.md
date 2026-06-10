@@ -4,7 +4,7 @@
 
 ## 环境要求
 
-- Node.js 18+
+- Node.js 20.9+
 - pnpm
 - macOS / Linux / Windows
 

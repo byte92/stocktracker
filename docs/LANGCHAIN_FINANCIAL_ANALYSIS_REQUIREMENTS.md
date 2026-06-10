@@ -74,7 +74,7 @@ LangChain 只运行在 `stock.getFinancials` 或其内部 helper 中，输出结
 - **来源优先**：财报分析必须返回来源列表；缺少来源时应降低置信度。
 - **缺失显式化**：缺失营收、净利润、现金流、负债、分部收入等关键字段时，必须进入 `missingData`。
 - **结构化输出**：LangChain 输出必须符合固定 schema，避免把不可解析自然语言直接塞进 SkillResult。
-- **Node 18 兼容**：仓库目标是 Node.js 18+，依赖版本必须满足该运行时约束。
+- **Node 20.9+ 兼容**：仓库目标是 Node.js 20.9+，依赖版本必须满足该运行时约束。
 - **可降级**：LangChain 子链失败时，Skill 应保留现有搜索兜底或返回明确错误，不影响整个对话服务。
 
 ## 6. 数据来源
@@ -234,16 +234,11 @@ Planner 应在以下用户意图中规划财报能力：
 
 ## 10. 依赖与兼容性
 
-仓库当前目标是 Node.js 18+。依赖选择必须满足：
+仓库当前目标是 Node.js 20.9+。依赖选择必须满足：
 
-- 不能引入要求 Node.js 20+ 的版本，除非项目整体目标升级。
+- 不能引入高于 Node.js 20.9+ 的版本要求，除非项目整体目标再次升级。
 - 必须通过 `pnpm install` 或 `pnpm install --frozen-lockfile` 管理锁文件。
 - 需要在实现说明中记录 LangChain 版本选择原因。
-
-建议方案：
-
-- 如果保持 Node.js 18+：选择 Node 18 兼容的 `@langchain/openai` / `@langchain/core` 版本。
-- 如果未来升级 Node.js 20+：再考虑 LangChain 1.x。
 
 首版只需要 OpenAI-compatible chat model 和结构化输出能力，不需要引入向量数据库、LangGraph 或 LangSmith。
 
@@ -278,7 +273,7 @@ Planner 应在以下用户意图中规划财报能力：
 
 ### Phase 2：最小可用实现
 
-- 增加 LangChain 依赖，选择 Node 18 兼容版本。
+- 增加 LangChain 依赖，选择 Node 20.9+ 兼容版本。
 - 新增 `lib/agent/chains/financialAnalysis.ts`。
 - 升级 `stock.getFinancials`，返回 `FinancialAnalysis`。
 - 保留现有 A 股结构化抓取逻辑和搜索兜底。

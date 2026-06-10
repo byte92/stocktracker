@@ -4,7 +4,7 @@
 [![中文](https://img.shields.io/badge/README-%E4%B8%AD%E6%96%87-lightgrey)](./README.md)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-![Node.js](https://img.shields.io/badge/node-18%2B-339933?logo=node.js&logoColor=white)
+![Node.js](https://img.shields.io/badge/node-20.9%2B-339933?logo=node.js&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-10.x-F69220?logo=pnpm&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
@@ -89,7 +89,7 @@ StockTracker is not designed for:
 
 Requirements:
 
-- Node.js 18+
+- Node.js 20.9+
 - pnpm
 - macOS / Linux / Windows
 

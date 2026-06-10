@@ -44,14 +44,24 @@ export function getAiEnvStatus(): AiEnvStatus {
 }
 
 export function resolveEffectiveAiConfig(config: AiConfig): AiConfig {
+  // embedding 端点独立注入：无论 chat 配置来自前端还是 env，财报 RAG 的
+  // embedding override 都应生效。留空则由 resolveEmbeddingEndpoint 默认复用 baseUrl。
+  const embeddingBaseUrl = process.env.AI_EMBEDDING_BASE_URL?.trim()
+  const embeddingModel = process.env.AI_EMBEDDING_MODEL?.trim()
+  const withEmbedding: AiConfig = {
+    ...config,
+    ...(embeddingBaseUrl ? { embeddingBaseUrl } : {}),
+    ...(embeddingModel ? { embeddingModel } : {}),
+  }
+
   const provider = readEnvProvider()
   const baseUrl = process.env.AI_BASE_URL?.trim()
   const model = process.env.AI_MODEL?.trim()
   const apiKey = process.env.AI_API_KEY?.trim()
-  if (!provider || !baseUrl || !model || !apiKey) return config
+  if (!provider || !baseUrl || !model || !apiKey) return withEmbedding
 
   return {
-    ...config,
+    ...withEmbedding,
     enabled: true,
     provider,
     baseUrl,

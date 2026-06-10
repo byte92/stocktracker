@@ -1,6 +1,6 @@
 **_CRITICAL_**
 
-This repository targets Node.js 18+ on macOS/Linux/Windows. Always install dependencies via `pnpm install` (or `pnpm install --frozen-lockfile`) before running scripts so lockfile stays in sync.
+This repository targets Node.js 20.9+ on macOS/Linux/Windows. Always install dependencies via `pnpm install` (or `pnpm install --frozen-lockfile`) before running scripts so lockfile stays in sync.
 
 StockTracker is a Next.js/TypeScript front-end for tracking stock trades and fees; read `README.md` for product goals and directory context.
 

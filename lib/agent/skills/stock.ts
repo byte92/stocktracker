@@ -276,6 +276,11 @@ export type FinancialsData = LegacyFinancialsData & {
     provider: 'langchain-openai' | 'native-json'
     degraded: boolean
     error?: string
+    retrieval?: {
+      used: boolean
+      chunkCount?: number
+      matchedDocCount?: number
+    }
   }
 }
 
@@ -672,6 +677,7 @@ export const stockGetFinancialsSkill: AgentSkill<FinancialsInput, FinancialsData
         provider: chain.provider,
         degraded: chain.degraded,
         ...(chain.error ? { error: chain.error } : {}),
+        ...(chain.retrieval ? { retrieval: chain.retrieval } : {}),
       },
     }
 

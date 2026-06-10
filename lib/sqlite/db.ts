@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { DEFAULT_APP_CONFIG } from "@/config/defaults";
 import { logger } from "@/lib/observability/logger";
@@ -125,10 +126,51 @@ function initSchema(db: Database.Database) {
 
   CREATE INDEX IF NOT EXISTS idx_ai_agent_runs_session_created
     ON ai_agent_runs(session_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS financial_doc_chunks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    analysis_id TEXT,
+    symbol TEXT NOT NULL,
+    market TEXT NOT NULL,
+    source_title TEXT,
+    publisher TEXT,
+    chunk_index INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    embedding_json TEXT NOT NULL,
+    embedding_model TEXT,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_financial_doc_chunks_user_symbol
+    ON financial_doc_chunks(user_id, symbol, market);
   `);
 }
 
 type SaveAiAnalysisInput = Omit<AiAnalysisHistoryRecord, "createdAt">;
+
+export type FinancialDocChunkWriteInput = {
+  userId: string;
+  symbol: string;
+  market: string;
+  analysisId?: string | null;
+  embeddingModel?: string | null;
+  chunks: Array<{
+    sourceTitle?: string | null;
+    publisher?: string | null;
+    content: string;
+    embedding: number[];
+  }>;
+};
+
+export type FinancialDocChunkRecord = {
+  id: string;
+  sourceTitle: string | null;
+  publisher: string | null;
+  content: string;
+  embedding: number[];
+  embeddingModel: string | null;
+};
 
 type ListAiAnalysisFilters = {
   type?: string;
@@ -458,13 +500,23 @@ export function createPortfolioStore(dbPath = resolveFinanceDbPath()) {
   }
 
   function deleteAiAnalysisById(userId: string, id: string) {
-    const result = db.prepare(
-      `
-      DELETE FROM ai_analysis_history
-      WHERE user_id = ? AND id = ?
-      `,
-    ).run(userId, id);
+    const remove = db.transaction(() => {
+      db.prepare(
+        `
+        DELETE FROM financial_doc_chunks
+        WHERE user_id = ? AND analysis_id = ?
+        `,
+      ).run(userId, id);
 
+      return db.prepare(
+        `
+        DELETE FROM ai_analysis_history
+        WHERE user_id = ? AND id = ?
+        `,
+      ).run(userId, id);
+    });
+
+    const result = remove();
     return result.changes > 0;
   }
 
@@ -675,6 +727,81 @@ export function createPortfolioStore(dbPath = resolveFinanceDbPath()) {
     return row ? parseAiAgentRunRow(row) : null;
   }
 
+  function replaceFinancialDocChunks(input: FinancialDocChunkWriteInput) {
+    const now = new Date().toISOString();
+    const insert = db.prepare(
+      `
+      INSERT INTO financial_doc_chunks (
+        id, user_id, analysis_id, symbol, market, source_title, publisher,
+        chunk_index, content, embedding_json, embedding_model, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+    );
+    const writeAll = db.transaction((chunks: FinancialDocChunkWriteInput["chunks"]) => {
+      db.prepare(
+        "DELETE FROM financial_doc_chunks WHERE user_id = ? AND symbol = ? AND market = ?",
+      ).run(input.userId, input.symbol, input.market);
+      chunks.forEach((chunk, index) => {
+        insert.run(
+          randomUUID(),
+          input.userId,
+          input.analysisId ?? null,
+          input.symbol,
+          input.market,
+          chunk.sourceTitle ?? null,
+          chunk.publisher ?? null,
+          index,
+          chunk.content,
+          JSON.stringify(chunk.embedding),
+          input.embeddingModel ?? null,
+          now,
+        );
+      });
+    });
+    writeAll(input.chunks);
+  }
+
+  function listFinancialDocChunks(userId: string, symbol: string, market: string): FinancialDocChunkRecord[] {
+    const rows = db.prepare(
+      `
+      SELECT id, source_title, publisher, content, embedding_json, embedding_model
+      FROM financial_doc_chunks
+      WHERE user_id = ? AND symbol = ? AND market = ?
+      ORDER BY chunk_index ASC
+      `,
+    ).all(userId, symbol, market) as Array<{
+      id: string;
+      source_title: string | null;
+      publisher: string | null;
+      content: string;
+      embedding_json: string;
+      embedding_model: string | null;
+    }>;
+    return rows.map((row) => {
+      let embedding: number[] = [];
+      try {
+        const parsed = JSON.parse(row.embedding_json);
+        if (Array.isArray(parsed)) embedding = parsed as number[];
+      } catch {
+        embedding = [];
+      }
+      return {
+        id: row.id,
+        sourceTitle: row.source_title,
+        publisher: row.publisher,
+        content: row.content,
+        embedding,
+        embeddingModel: row.embedding_model,
+      };
+    });
+  }
+
+  function deleteFinancialDocChunks(userId: string, symbol: string, market: string) {
+    return db.prepare(
+      "DELETE FROM financial_doc_chunks WHERE user_id = ? AND symbol = ? AND market = ?",
+    ).run(userId, symbol, market).changes;
+  }
+
   return {
     dbPath,
     getPortfolioByUserId,
@@ -698,6 +825,9 @@ export function createPortfolioStore(dbPath = resolveFinanceDbPath()) {
     listAiAgentRuns,
     setSessionContext,
     getSessionContext,
+    replaceFinancialDocChunks,
+    listFinancialDocChunks,
+    deleteFinancialDocChunks,
     rawInsert,
     close,
   };
@@ -739,6 +869,18 @@ export function savePortfolioByUserId(userId: string, payload: StoredPayload) {
 
 export function saveAiAnalysis(record: SaveAiAnalysisInput) {
   getPortfolioStore().saveAiAnalysis(record);
+}
+
+export function replaceFinancialDocChunks(input: FinancialDocChunkWriteInput) {
+  getPortfolioStore().replaceFinancialDocChunks(input);
+}
+
+export function listFinancialDocChunks(userId: string, symbol: string, market: string) {
+  return getPortfolioStore().listFinancialDocChunks(userId, symbol, market);
+}
+
+export function deleteFinancialDocChunks(userId: string, symbol: string, market: string) {
+  return getPortfolioStore().deleteFinancialDocChunks(userId, symbol, market);
 }
 
 export function listAiAnalysisByUserId(userId: string, filters: ListAiAnalysisFilters = {}) {

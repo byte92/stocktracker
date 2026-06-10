@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Loader2, Search, Trash2 } from 'lucide-react'
+import { BarChart3, Loader2, MessageCircleQuestion, Search, Send, Sparkles, Trash2 } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
+import MarkdownMessage from '@/components/ai/MarkdownMessage'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { marketSupportsValuation } from '@/config/defaults'
@@ -437,11 +438,30 @@ function FinancialAnalysisResult({ result }: { result: FinancialsData }) {
                 {t('报告期')}：{analysis.reportPeriod || '--'} · {t('置信度')}：{analysis.confidence}
               </div>
             </div>
-            <div className={`rounded-full px-2.5 py-1 text-xs ${result.chain.degraded ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-primary/10 text-primary'}`}>
-              {result.chain.degraded ? t('已降级') : result.chain.provider}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className={`rounded-full px-2.5 py-1 text-xs ${result.chain.degraded ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-primary/10 text-primary'}`}>
+                {result.chain.degraded ? t('已降级') : result.chain.provider}
+              </div>
+              {result.chain.retrieval?.used && (
+                <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-700 dark:text-emerald-300">
+                  <Sparkles className="h-3 w-3" />
+                  {t('语义检索')}
+                </div>
+              )}
             </div>
           </div>
           <p className="mt-4 text-sm leading-6 text-foreground">{analysis.trendSummary}</p>
+          {result.chain.retrieval?.used && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-700 dark:text-emerald-300">
+              <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {t('本次分析由 RAG 语义检索驱动：从财报中切分 {chunks} 块，命中 {matched} 篇最相关内容参与分析，而非简单截断全文。', {
+                  chunks: result.chain.retrieval.chunkCount ?? 0,
+                  matched: result.chain.retrieval.matchedDocCount ?? 0,
+                })}
+              </span>
+            </div>
+          )}
           {result.chain.degraded && result.chain.error && (
             <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
               {t('财报分析链已降级')}：{result.chain.error}
@@ -484,7 +504,153 @@ function FinancialAnalysisResult({ result }: { result: FinancialsData }) {
           </div>
         </div>
       </Card>
+
+      <FinancialQaPanel symbol={result.symbol} market={result.market} />
     </div>
+  )
+}
+
+type FinancialQaItem = {
+  question: string
+  answer: string
+  sources: Array<{ title: string | null; publisher: string | null }>
+  matched: number
+}
+
+const QA_SUGGESTIONS = [
+  '毛利率和净利率的变化趋势如何？',
+  '主要的经营风险有哪些？',
+  '现金流和应收账款是否健康？',
+  '收入增长的主要驱动因素是什么？',
+]
+
+function FinancialQaPanel({ symbol, market }: { symbol: string; market: Market }) {
+  const { t } = useI18n()
+  const { userId, config } = useStockStore()
+  const [draft, setDraft] = useState('')
+  const [items, setItems] = useState<FinancialQaItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // 切换标的时清空上一只股票的问答记录
+  useEffect(() => {
+    setItems([])
+    setError(null)
+  }, [symbol, market])
+
+  const ask = async (questionText: string) => {
+    const question = questionText.trim()
+    if (!question || loading) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(nextApiUrls.ai.financialQa(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, symbol, market, question, aiConfig: config.aiConfig }),
+      })
+      const data = await readJsonResponse<{ result: { answer: string; sources: FinancialQaItem['sources']; matched: number } }>(res, {
+        fallbackMessage: t('财报问答失败'),
+        unavailableMessage: t('AI 服务暂时不可用，请稍后重试。'),
+      })
+      setItems((prev) => [
+        { question, answer: data.result.answer, sources: data.result.sources ?? [], matched: data.result.matched ?? 0 },
+        ...prev,
+      ])
+      setDraft('')
+    } catch (err) {
+      console.error('Financial QA failed:', err)
+      setError(describeClientRequestError(err, t('财报问答失败'), t('AI 服务暂时不可用，请稍后重试。')))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const disabled = loading || !userId || !config.aiConfig.enabled || !symbol
+
+  return (
+    <Card className="border-border bg-card">
+      <div className="space-y-4 p-5">
+        <div className="flex items-center gap-2">
+          <MessageCircleQuestion className="h-4 w-4 text-primary" />
+          <div className="text-sm font-semibold text-foreground">{t('针对这份财报追问')}</div>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {t('基于已索引的财报内容做 RAG 检索增强问答，回答只依据财报片段、不编造。若刚完成分析，索引可能需要几秒，可稍候重试。')}
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <textarea
+            className="min-h-[44px] flex-1 resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+            value={draft}
+            placeholder={t('例如：毛利率的变化趋势如何？（⌘/Ctrl + Enter 发送）')}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault()
+                void ask(draft)
+              }
+            }}
+          />
+          <Button className="sm:self-end" onClick={() => void ask(draft)} disabled={disabled || !draft.trim()} aria-busy={loading}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            {t('追问')}
+          </Button>
+        </div>
+
+        {items.length === 0 && (
+          <div className="flex flex-wrap gap-2">
+            {QA_SUGGESTIONS.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                className="rounded-full border border-border bg-muted/30 px-3 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                onClick={() => void ask(suggestion)}
+                disabled={disabled}
+              >
+                {t(suggestion)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!config.aiConfig.enabled && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {t('AI 功能尚未启用，请先到设置中配置模型。')}
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+        )}
+
+        {items.length > 0 && (
+          <div className="space-y-3">
+            {items.map((item, index) => (
+              <div key={`${item.question}-${index}`} className="rounded-lg border border-border bg-muted/10 p-4">
+                <div className="flex items-start gap-2 text-sm font-medium text-foreground">
+                  <MessageCircleQuestion className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>{item.question}</span>
+                </div>
+                <div className="mt-3 text-sm text-foreground">
+                  <MarkdownMessage content={item.answer || t('（模型未返回内容）')} />
+                </div>
+                {item.sources.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+                    <span className="text-xs text-muted-foreground">{t('引用 {matched} 段 · 来源', { matched: item.matched })}</span>
+                    {item.sources.map((source, sourceIndex) => (
+                      <span key={`${source.title ?? 'src'}-${sourceIndex}`} className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                        {source.title ?? t('财报片段')}{source.publisher ? ` · ${source.publisher}` : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
   )
 }
 
