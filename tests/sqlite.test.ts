@@ -225,6 +225,91 @@ test('sqlite ai history preserves financial analysis result shape', () => {
   }
 })
 
+test('sqlite financial doc chunks replace and list latest index by symbol', () => {
+  const store = createPortfolioStore(createTempDbPath())
+
+  try {
+    store.replaceFinancialDocChunks({
+      userId: 'local:test-user',
+      analysisId: 'financial-record-1',
+      symbol: 'AAPL',
+      market: 'US',
+      embeddingModel: 'text-embedding-3-small',
+      chunks: [
+        { sourceTitle: 'Apple Q1', publisher: 'apple-ir', content: 'old revenue chunk', embedding: [1, 0] },
+        { sourceTitle: 'Apple Q1', publisher: 'apple-ir', content: 'old cash flow chunk', embedding: [0, 1] },
+      ],
+    })
+
+    assert.equal(store.listFinancialDocChunks('local:test-user', 'AAPL', 'US').length, 2)
+
+    store.replaceFinancialDocChunks({
+      userId: 'local:test-user',
+      analysisId: 'financial-record-2',
+      symbol: 'AAPL',
+      market: 'US',
+      embeddingModel: 'bge-m3',
+      chunks: [
+        { sourceTitle: 'Apple Q2', publisher: 'apple-ir', content: 'new margin chunk', embedding: [0.5, 0.5] },
+      ],
+    })
+
+    const chunks = store.listFinancialDocChunks('local:test-user', 'AAPL', 'US')
+
+    assert.equal(chunks.length, 1)
+    assert.equal(chunks[0]?.sourceTitle, 'Apple Q2')
+    assert.equal(chunks[0]?.content, 'new margin chunk')
+    assert.deepEqual(chunks[0]?.embedding, [0.5, 0.5])
+    assert.equal(chunks[0]?.embeddingModel, 'bge-m3')
+  } finally {
+    store.close()
+  }
+})
+
+test('sqlite deleting a financial analysis also removes its indexed chunks', () => {
+  const store = createPortfolioStore(createTempDbPath())
+
+  try {
+    store.saveAiAnalysis({
+      id: 'financial-record-1',
+      userId: 'local:test-user',
+      type: 'financial',
+      stockId: 'stock-aapl',
+      stockCode: 'AAPL',
+      stockName: 'Apple',
+      market: 'US',
+      confidence: 'medium',
+      tags: ['财报分析', 'US'],
+      generatedAt: '2026-05-21T08:00:00.000Z',
+      result: {
+        symbol: 'AAPL',
+        market: 'US',
+        analysis: { companyName: 'Apple', confidence: 'medium', trendSummary: 'ok', metrics: {}, highlights: [], risks: [], valuationNotes: [], missingData: [] },
+        chain: { provider: 'native-json', degraded: false },
+      },
+    })
+    store.replaceFinancialDocChunks({
+      userId: 'local:test-user',
+      analysisId: 'financial-record-1',
+      symbol: 'AAPL',
+      market: 'US',
+      embeddingModel: 'text-embedding-3-small',
+      chunks: [
+        { sourceTitle: 'Apple Q1', publisher: 'apple-ir', content: 'revenue chunk', embedding: [1, 0] },
+      ],
+    })
+
+    assert.equal(store.listFinancialDocChunks('local:test-user', 'AAPL', 'US').length, 1)
+
+    const deleted = store.deleteAiAnalysisById('local:test-user', 'financial-record-1')
+
+    assert.equal(deleted, true)
+    assert.equal(store.listFinancialDocChunks('local:test-user', 'AAPL', 'US').length, 0)
+  } finally {
+    store.close()
+  }
+})
+
 test('sqlite persists and lists ai agent runs', () => {
   const store = createPortfolioStore(createTempDbPath())
 

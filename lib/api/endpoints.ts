@@ -24,6 +24,7 @@ export const NEXT_API_ROUTES = {
     chatSessions: '/api/ai/chat/sessions',
     configStatus: '/api/ai/config/status',
     financialAnalysis: '/api/ai/financial-analysis',
+    financialQa: '/api/ai/financial-qa',
     history: '/api/ai/history',
     marketAnalysis: '/api/ai/market-analysis',
     portfolioAnalysis: '/api/ai/portfolio-analysis',
@@ -63,6 +64,9 @@ export const nextApiUrls = {
     },
     financialAnalysis() {
       return NEXT_API_ROUTES.ai.financialAnalysis
+    },
+    financialQa() {
+      return NEXT_API_ROUTES.ai.financialQa
     },
     history(params?: URLSearchParams | Record<string, QueryValue>) {
       return withQuery(NEXT_API_ROUTES.ai.history, params)

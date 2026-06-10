@@ -89,12 +89,13 @@ async function handlePOST(request: Request) {
       return NextResponse.json({ error: result.error ?? '财报分析失败' }, { status: 500 })
     }
 
+    const analysisId = randomUUID()
     try {
       const data = result.data
       const stock = body.stocks.find((item) => item.code.toUpperCase() === symbol.toUpperCase() && item.market === body.market)
       const { saveAiAnalysis } = await import('@/lib/sqlite/db')
       saveAiAnalysis({
-        id: randomUUID(),
+        id: analysisId,
         userId: body.userId,
         type: 'financial',
         stockId: stock?.id ?? null,
@@ -113,6 +114,29 @@ async function handlePOST(request: Request) {
       })
     } catch (error) {
       logger.error('api.ai.financial-analysis.persist.failed', { error, userId: body.userId, symbol, market: body.market })
+    }
+
+    // RAG 二阶段：把财报文档向量化落库，供后续多轮问答检索。
+    // 真正的 fire-and-forget：不 await，索引在后台完成，绝不增加分析响应延迟；失败仅记录日志。
+    const documentsToIndex = result.data?.documents ?? []
+    if (documentsToIndex.length) {
+      const indexUserId = body.userId
+      const indexMarket = body.market
+      void (async () => {
+        try {
+          const { indexFinancialDocuments } = await import('@/lib/agent/financials/qa')
+          await indexFinancialDocuments({
+            userId: indexUserId,
+            analysisId,
+            symbol,
+            market: indexMarket,
+            documents: documentsToIndex,
+            config: aiConfig,
+          })
+        } catch (error) {
+          logger.error('api.ai.financial-analysis.index.failed', { error, userId: indexUserId, symbol, market: indexMarket })
+        }
+      })()
     }
 
     return NextResponse.json({ result: result.data, uploadErrors: payload.uploadErrors })

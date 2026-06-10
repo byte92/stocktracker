@@ -79,6 +79,11 @@ export interface AiConfig {
   maxContextTokens: number
   newsEnabled: boolean
   analysisLanguage: AiAnalysisLanguage
+  // RAG 财报检索使用的 embedding 端点（可选）。
+  // 仅 openai-compatible 端点提供 embeddings；anthropic-compatible 不支持，
+  // 未配置时财报 RAG 会降级为截断逻辑。缺省复用 baseUrl / apiKey。
+  embeddingModel?: string
+  embeddingBaseUrl?: string
 }
 
 // 应用配置

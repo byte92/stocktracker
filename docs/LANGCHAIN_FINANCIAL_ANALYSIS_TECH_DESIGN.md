@@ -238,18 +238,18 @@ LangChain 首版建议只接 OpenAI-compatible，因为 `@langchain/openai` 对 
 
 ## 10. 依赖版本策略
 
-仓库目标是 Node.js 18+，因此不能直接引入要求 Node.js 20+ 的 LangChain 版本。
+仓库目标是 Node.js 20.9+，依赖版本不能超过这一运行时约束。
 
 实现前需要确认：
 
-- `@langchain/openai` 版本的 `engines.node` 支持 Node 18。
-- `@langchain/core` 版本的 `engines.node` 支持 Node 18。
+- `@langchain/openai` 版本的 `engines.node` 支持 Node 20.9+。
+- `@langchain/core` / `@langchain/textsplitters` 版本的 `engines.node` 支持 Node 20.9+。
 - 依赖不会引入和 Next.js 16 / React 19 明显冲突的 peer dependency。
 
 建议在实现说明中记录类似信息：
 
 ```text
-选择 @langchain/openai x.y.z 与 @langchain/core a.b.c，因为两者支持 Node >=18，符合仓库 Node.js 18+ 目标。
+选择 @langchain/openai x.y.z、@langchain/core a.b.c 与 @langchain/textsplitters c.d.e，因为它们符合仓库 Node.js 20.9+ 目标。
 ```
 
 依赖必须通过 `pnpm install <pkg> --save` 添加。
@@ -423,7 +423,7 @@ AI
 ## 17. 实施顺序建议
 
 1. 确认本文档和需求文档。
-2. 选择 Node 18 兼容的 LangChain 版本。
+2. 选择 Node 20.9+ 兼容的 LangChain 版本。
 3. 实现 `FinancialAnalysis` schema 和子链。
 4. 改造 `stock.getFinancials`。
 5. 调整 Skill 文档和 Planner 可见描述。
@@ -436,4 +436,4 @@ AI
 - 首版不引入 LangChain Agent、LangGraph、RAG 和向量库。
 - 财报分析 UI 放在 AI 一级分组下，推荐路径 `/ai/financials`。
 - 首版不新增独立一级 Tab。
-- Node.js 18+ 兼容性优先于使用 LangChain 最新主版本。
+- Node.js 20.9+ 兼容性优先于使用更高运行时要求的 LangChain 版本。
