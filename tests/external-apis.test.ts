@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { AlphaVantageDataSource } from '@/lib/dataSources/AlphaVantageSource'
 import { NasdaqSource } from '@/lib/dataSources/NasdaqSource'
-import { StooqSource } from '@/lib/dataSources/StooqSource'
 import { TencentFinanceSource } from '@/lib/dataSources/TencentFinanceSource'
 import { YahooFinanceSource } from '@/lib/dataSources/YahooFinanceSource'
 import { exchangeRateService } from '@/lib/ExchangeRateService'
@@ -47,12 +46,6 @@ externalTest('Yahoo Finance 报价接口可用', async () => {
   const source = new YahooFinanceSource({ provider: 'yahoo-finance' })
   assert.equal(await source.healthCheck(), true)
   assertQuote(await source.getQuote('AAPL', 'US'), 'Yahoo quote')
-})
-
-externalTest('Stooq 报价接口可用', async () => {
-  const source = new StooqSource({ provider: 'stooq' })
-  assert.equal(await source.healthCheck(), true)
-  assertQuote(await source.getQuote('AAPL', 'US'), 'Stooq quote')
 })
 
 const alphaVantageApiKey = process.env.ALPHA_VANTAGE_API_KEY ?? process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY

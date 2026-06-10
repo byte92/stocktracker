@@ -676,6 +676,18 @@ export function createPortfolioStore(dbPath = resolveFinanceDbPath()) {
     return result.changes;
   }
 
+  function clearAiDataByUserId(userId: string) {
+    const clearAll = db.transaction(() => {
+      db.prepare("DELETE FROM ai_chat_messages WHERE user_id = ?").run(userId);
+      db.prepare("DELETE FROM ai_agent_runs WHERE user_id = ?").run(userId);
+      const sessions = db.prepare("DELETE FROM ai_chat_sessions WHERE user_id = ?").run(userId);
+      const analyses = db.prepare("DELETE FROM ai_analysis_history WHERE user_id = ?").run(userId);
+      const chunks = db.prepare("DELETE FROM financial_doc_chunks WHERE user_id = ?").run(userId);
+      return sessions.changes + analyses.changes + chunks.changes;
+    });
+    return clearAll();
+  }
+
   function saveAiAgentRun(input: SaveAiAgentRunInput) {
     db.prepare(
       `
@@ -820,6 +832,7 @@ export function createPortfolioStore(dbPath = resolveFinanceDbPath()) {
     deleteAiChatSession,
     clearAiChatMessages,
     clearAiChatByUserId,
+    clearAiDataByUserId,
     saveAiAgentRun,
     getAiAgentRun,
     listAiAgentRuns,
@@ -937,6 +950,10 @@ export function clearAiChatMessages(userId: string, sessionId: string) {
 
 export function clearAiChatByUserId(userId: string) {
   return getPortfolioStore().clearAiChatByUserId(userId);
+}
+
+export function clearAiDataByUserId(userId: string) {
+  return getPortfolioStore().clearAiDataByUserId(userId);
 }
 
 export function saveAiAgentRun(input: SaveAiAgentRunInput) {

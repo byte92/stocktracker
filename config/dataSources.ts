@@ -27,7 +27,7 @@ export const MANUAL_CONFIG: DataSourceConfig = {
   cacheTtl: 0,
 }
 
-// Stooq 备选（无需Key，适合美股兜底）
+// Stooq legacy adapter：公开 CSV 端点当前不稳定，不进入默认 fallback 链。
 export const STOOQ_CONFIG: DataSourceConfig = {
   provider: 'stooq',
   rateLimit: 120,
@@ -47,13 +47,12 @@ export const DEFAULT_STOCK_SERVICE_CONFIG = {
   sources: {
     'tencent': TENCENT_CONFIG,
     'alpha-vantage': ALPHA_VANTAGE_CONFIG,
-    'stooq': STOOQ_CONFIG,
     'crypto': CRYPTO_CONFIG,
     'manual': MANUAL_CONFIG,
   },
   cacheEnabled: true,
   cacheTtl: 60,
-  fallbackChain: ['tencent', 'stooq', 'crypto', 'alpha-vantage', 'manual'] as DataSourceProvider[],
+  fallbackChain: ['tencent', 'crypto', 'alpha-vantage', 'manual'] as DataSourceProvider[],
 }
 
 // 统一的代码转换规则：按市场 + 数据源生成标准代码，不维护硬编码映射表

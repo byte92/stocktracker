@@ -195,7 +195,7 @@ outputs:
 
 | 规则 | 说明 |
 |---|---|
-| URL 白名单 | 只允许 `finance.yahoo.com`、`qt.gtimg.cn`、`api.nasdaq.com`、`stooq.com`、`alphavantage.co`、`eastmoney.com`、`cninfo.com.cn` 等已知金融数据源 |
+| URL 白名单 | 只允许 `finance.yahoo.com`、`qt.gtimg.cn`、`api.nasdaq.com`、`alphavantage.co`、`eastmoney.com`、`cninfo.com.cn` 等已知金融数据源 |
 | 禁止内网请求 | 拒绝 `localhost`、`127.0.0.1`、`192.168.*`、`10.*`、`172.16-31.*` |
 | 超时限制 | 单次请求最长 15 秒 |
 | 响应大小限制 | 最大 512KB 正文 |

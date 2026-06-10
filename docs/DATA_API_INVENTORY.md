@@ -9,13 +9,11 @@
 | 实时报价 | 腾讯财经 | `https://qt.gtimg.cn` | `lib/dataSources/TencentFinanceSource.ts` | A 股、港股、基金、美股兜底报价、估值字段。 |
 | 实时报价 | Nasdaq | `https://api.nasdaq.com/api/quote` | `lib/dataSources/NasdaqSource.ts` | 美股报价。 |
 | 实时报价 | Yahoo Finance | `https://query1.finance.yahoo.com` / `https://query2.finance.yahoo.com` | `lib/dataSources/YahooFinanceSource.ts` | 美股报价兜底。 |
-| 实时报价 | Stooq | `https://stooq.com/q/l/` | `lib/dataSources/StooqSource.ts` | 美股报价兜底。 |
 | 实时报价 | Alpha Vantage | `https://www.alphavantage.co/query` | `lib/dataSources/AlphaVantageSource.ts` | 报价兜底，需要 `ALPHA_VANTAGE_API_KEY`。 |
 | 实时报价 | Binance / Coinbase | `https://api.binance.com` / `https://api.coinbase.com` | `lib/dataSources/CryptoSource.ts` | 加密资产现货报价，优先 USDT，失败回退 USD。 |
 | K 线 | 腾讯财经 | `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get` | `lib/external/kline.ts` | A 股、港股、基金日 K。 |
 | 分钟 K 线 | 腾讯财经 | `https://ifzq.gtimg.cn/appstock/app/kline/mkline` | `lib/external/kline.ts` | A 股、港股、基金分钟 K。 |
 | K 线 | Nasdaq | `https://api.nasdaq.com/api/quote/{symbol}/historical` | `lib/external/kline.ts` | 美股日 K。 |
-| K 线 | Stooq | `https://stooq.com/q/d/l/` | `lib/external/kline.ts` | 美股日 K 兜底。 |
 | K 线 | Alpha Vantage | `https://www.alphavantage.co/query` | `lib/external/kline.ts` | K 线兜底，需要 `ALPHA_VANTAGE_API_KEY`。 |
 | K 线 | Binance / Coinbase | `https://api.binance.com` / `https://api.coinbase.com` | `lib/external/kline.ts` | 加密资产 K 线，优先 Binance，失败回退 Coinbase。 |
 | 大盘指数 | 腾讯财经 | `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get` | `lib/external/marketIndices.ts` | A 股、港股、美股代表指数快照和技术指标。 |
@@ -34,7 +32,7 @@
 pnpm test:external
 ```
 
-这组测试会覆盖腾讯财经报价、Nasdaq 报价、Yahoo Finance 报价、Stooq 报价、腾讯 K 线、美股 K 线、腾讯指数、Google News RSS 和汇率接口。Alpha Vantage 报价测试需要配置 `ALPHA_VANTAGE_API_KEY` 或 `NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY`。
+这组测试会覆盖腾讯财经报价、Nasdaq 报价、Yahoo Finance 报价、腾讯 K 线、美股 K 线、腾讯指数、Google News RSS 和汇率接口。Alpha Vantage 报价测试需要配置 `ALPHA_VANTAGE_API_KEY` 或 `NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY`。
 
 ## 内部 API Route
 

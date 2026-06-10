@@ -19,7 +19,6 @@
 | Tencent Finance | A 股、港股、基金、美股兜底报价和部分估值字段 | 否 | `lib/dataSources/TencentFinanceSource.ts` |
 | Nasdaq | 美股报价 | 否 | `lib/dataSources/NasdaqSource.ts` |
 | Yahoo Finance | 美股及部分市场报价兜底，quote 不可用时 fallback 到 chart | 否 | `lib/dataSources/YahooFinanceSource.ts` |
-| Stooq | 美股 CSV 报价兜底 | 否 | `lib/dataSources/StooqSource.ts` |
 | Binance / Coinbase | 加密资产现货报价，优先 USDT，失败回退 USD | 否 | `lib/dataSources/CryptoSource.ts` |
 | Alpha Vantage | 备用报价源 | 是 | `lib/dataSources/AlphaVantageSource.ts` |
 | Manual | 手动兜底占位 | 否 | `lib/dataSources/ManualSource.ts` |
@@ -50,7 +49,7 @@
 美股报价优先链路：
 
 ```text
-Nasdaq -> Tencent -> Yahoo Finance -> Stooq -> Alpha Vantage -> Manual
+Nasdaq -> Tencent -> Yahoo Finance -> Alpha Vantage -> Manual
 ```
 
 加密资产报价优先链路：
@@ -62,10 +61,12 @@ CryptoSource(Binance -> Coinbase) -> Manual
 其他市场默认链路：
 
 ```text
-Tencent -> Nasdaq -> Yahoo Finance -> Stooq -> Alpha Vantage -> Manual
+Tencent -> Nasdaq -> Yahoo Finance -> Alpha Vantage -> Manual
 ```
 
 实际可用性还会受市场、标的、上游限制和 API Key 配置影响。`CryptoSource` 只响应 `CRYPTO` 市场，即使出现在内部 fallback 配置中，也不会为非加密市场返回报价。
+
+Stooq 的公开 CSV 端点曾作为美股兜底，但当前返回 404 或浏览器验证页，不再进入默认 fallback 链。保留 `StooqSource` 仅用于后续评估或替换时参考。
 
 ## 缓存策略
 

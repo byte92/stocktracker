@@ -22,7 +22,7 @@ RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
 FROM ${NODE_IMAGE} AS runner
 LABEL org.opencontainers.image.title="StockTracker" \
   org.opencontainers.image.description="Local-first portfolio tracker and AI investing copilot." \
-  org.opencontainers.image.source="https://github.com/byte92/finance_sys" \
+  org.opencontainers.image.source="https://github.com/byte92/stocktracker" \
   org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app

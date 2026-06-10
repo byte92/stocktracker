@@ -53,7 +53,7 @@ StockTracker.app / StockTracker.exe
 在项目根目录新增 `electron/` 目录：
 
 ```
-finance_sys/
+stocktracker/
 ├── electron/                      # 新增：Electron 主进程
 │   ├── main.ts                    # 主进程入口
 │   ├── preload.ts                 # 预加载脚本

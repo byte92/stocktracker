@@ -36,7 +36,7 @@
 - [ ] **Step 1: 安装依赖**
 
 ```bash
-cd /Users/anything/Code/finance_sys
+cd /Users/anything/Code/stocktracker
 pnpm add -D electron electron-builder
 pnpm add electron-updater
 ```
@@ -220,7 +220,7 @@ export function createServerManager(options: ServerManagerOptions): ServerManage
 - [ ] **Step 2: 验证 TypeScript 编译**
 
 ```bash
-cd /Users/anything/Code/finance_sys
+cd /Users/anything/Code/stocktracker
 npx tsc --noEmit electron/server.ts --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck
 ```
 
@@ -794,7 +794,7 @@ main().catch((error) => {
 - [ ] **Step 2: 验证 TypeScript 编译**
 
 ```bash
-cd /Users/anything/Code/finance_sys
+cd /Users/anything/Code/stocktracker
 npx tsc --noEmit electron/main.ts --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck
 ```
 
@@ -992,7 +992,7 @@ git commit -m "feat(electron): add app icons for macOS and Windows"
 - [ ] **Step 1: 构建 Next.js standalone**
 
 ```bash
-cd /Users/anything/Code/finance_sys
+cd /Users/anything/Code/stocktracker
 pnpm build
 ```
 

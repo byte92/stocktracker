@@ -165,15 +165,15 @@ async function persistRemote(userId: string, stocks: Stock[], config: AppConfig)
   });
 }
 
-async function clearRemoteAiChat(userId: string) {
+async function clearRemoteAiData(userId: string) {
   const res = await fetch(nextApiUrls.ai.chatSessions(), {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, all: true }),
   });
   await readJsonResponse<{ ok: true }>(res, {
-    fallbackMessage: "清理 AI 对话失败，请稍后重试。",
-    unavailableMessage: "AI 对话服务暂时不可用，请稍后重试。",
+    fallbackMessage: "清理 AI 数据失败，请稍后重试。",
+    unavailableMessage: "AI 数据服务暂时不可用，请稍后重试。",
   });
 }
 
@@ -453,8 +453,8 @@ export const useStockStore = create<StockStore>()((set, get) => ({
       void persistRemote(userId, next.stocks, next.config).catch((error) => {
         console.error("Clear data failed:", error);
       });
-      void clearRemoteAiChat(userId).catch((error) => {
-        console.error("Clear AI chat failed:", error);
+      void clearRemoteAiData(userId).catch((error) => {
+        console.error("Clear AI data failed:", error);
       });
     }
   },
